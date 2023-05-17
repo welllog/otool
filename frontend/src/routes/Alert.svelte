@@ -19,7 +19,7 @@
 </script>
 
 {#if $show}
-    <div class="alert alert-{alertType} alert-dismissible fade show" role="alert">
+    <div class="alert alert-{alertType} alert-dismissible fade show mt-3" role="alert">
         {alertText}
         <button on:click={closeAlert} type="button" class="btn-close"></button>
     </div>
