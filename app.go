@@ -8,10 +8,13 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
+
 	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/welllog/otool/internal"
-	"net/url"
 )
 
 // App struct
@@ -79,6 +82,45 @@ func (a *App) UrlEnc(in string) string {
 
 func (a *App) UrlDec(in string) (string, error) {
 	return url.QueryUnescape(in)
+}
+
+func (a *App) OctEnc(in string) string {
+	var buf strings.Builder
+	buf.Grow(len(in) * 4)
+	for _, char := range in {
+		if char < 128 {
+			buf.WriteString(fmt.Sprintf("\\%o", char))
+		} else {
+			bs := []byte(string(char))
+			for _, b := range bs {
+				buf.WriteString(fmt.Sprintf("\\%o", b))
+			}
+		}
+	}
+	return buf.String()
+}
+
+func (a *App) OctDec(in string) string {
+	arr := strings.Split(in, "\\")
+	var buf strings.Builder
+	buf.Grow(len(in))
+	for _, v := range arr {
+		n, _ := strconv.ParseInt(v, 8, 64)
+		buf.WriteByte(byte(n))
+	}
+	return buf.String()
+}
+
+func (a *App) HexEnc(in string) string {
+	return hex.EncodeToString(internal.StringToBytes(in))
+}
+
+func (a *App) HexDec(in string) (string, error) {
+	b, err := hex.DecodeString(in)
+	if err != nil {
+		return "", err
+	}
+	return internal.BytesToString(b), nil
 }
 
 func (a *App) warnAlert(msg string) {

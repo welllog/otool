@@ -12,6 +12,8 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
+const version = "v0.0.1"
+
 //go:embed all:frontend/build
 var assets embed.FS
 
@@ -45,9 +47,8 @@ func main() {
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  true,
 			About: &mac.AboutInfo{
-				Title: "oai version",
-				// TODO version
-				Message: "v0.0.1",
+				Title:   "oai version",
+				Message: version,
 			},
 		},
 		Linux: &linux.Options{

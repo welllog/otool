@@ -7,7 +7,15 @@ export function Base64Enc(arg1:string):Promise<string>;
 
 export function Greet(arg1:string):Promise<string>;
 
+export function HexDec(arg1:string):Promise<string>;
+
+export function HexEnc(arg1:string):Promise<string>;
+
 export function Md5(arg1:string):Promise<string>;
+
+export function OctDec(arg1:string):Promise<string>;
+
+export function OctEnc(arg1:string):Promise<string>;
 
 export function OpenSSLAesDec(arg1:string,arg2:string):Promise<string>;
 

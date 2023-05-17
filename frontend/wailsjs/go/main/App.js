@@ -14,8 +14,24 @@ export function Greet(arg1) {
   return window['go']['main']['App']['Greet'](arg1);
 }
 
+export function HexDec(arg1) {
+  return window['go']['main']['App']['HexDec'](arg1);
+}
+
+export function HexEnc(arg1) {
+  return window['go']['main']['App']['HexEnc'](arg1);
+}
+
 export function Md5(arg1) {
   return window['go']['main']['App']['Md5'](arg1);
+}
+
+export function OctDec(arg1) {
+  return window['go']['main']['App']['OctDec'](arg1);
+}
+
+export function OctEnc(arg1) {
+  return window['go']['main']['App']['OctEnc'](arg1);
 }
 
 export function OpenSSLAesDec(arg1, arg2) {

@@ -4,13 +4,15 @@
 
     let showSecret = false;
     let inputText, opt, secretKey, outputText;
+    let inputLen = 0, outputLen = 0;
 
-    function trans() {
+    function transform() {
         closeAlert();
+        inputLen = inputText.length;
 
         let res;
         switch (opt) {
-            case "opensslEnc":
+            case "opensslAesEnc":
                 res = otool.OpenSSLAesEnc(inputText, secretKey);
                 break;
             case "md5":
@@ -20,49 +22,80 @@
                 res = otool.Sha1(inputText);
                 break;
             case "sha256":
-                res = otool.Sha256(inputText)
+                res = otool.Sha256(inputText);
                 break;
             case "base64Enc":
-                res = otool.Base64Enc(inputText)
+                res = otool.Base64Enc(inputText);
                 break;
             case "urlEnc":
-                res = otool.UrlEnc(inputText)
+                res = otool.UrlEnc(inputText);
                 break;
-            case "opensslDec":
+            case "octEnc":
+                res = otool.OctEnc(inputText);
+                break;
+            case "hexEnc":
+                res = otool.HexEnc(inputText);
+                break;
+            case "opensslAesDec":
                 res = otool.OpenSSLAesDec(inputText, secretKey);
                 break;
             case "base64Dec":
-                res = otool.Base64Dec(inputText)
+                res = otool.Base64Dec(inputText);
                 break;
             case "urlDec":
-                res = otool.UrlDec(inputText)
+                res = otool.UrlDec(inputText);
                 break;
+            case "octDec":
+                res = otool.OctDec(inputText);
+                break;
+            case "hexDec":
+                res = otool.HexDec(inputText);
+                break;
+            case "upper":
+                outputText = inputText.toUpperCase();
+                outputLen = outputText.length;
+                return
+            case "lower":
+                outputText = inputText.toLowerCase();
+                outputLen = outputText.length;
+                return
             default:
                 showAlert("warning", "未知操作")
                 return;
         }
 
         res
-            .then(res => {outputText = res})
+            .then(res => {
+                outputText = res;
+                outputLen = outputText.length;
+            })
             .catch(err => {showAlert("danger", err.toString())})
 
     }
 
-    function insteadIO() {
+    function replaceInput() {
         inputText = outputText;
     }
 
     function toggleSecret(e) {
-        if (["opensslEnc", "opensslDec"].indexOf(e.target.value) >= 0) {
+        if (["opensslAesEnc", "opensslAesDec"].indexOf(e.target.value) >= 0) {
             showSecret = true;
             return;
         }
         showSecret = false;
     }
 
+    function clean() {
+        inputText = "";
+        outputText = "";
+        secretKey = "";
+        inputLen = 0;
+        outputLen = 0;
+    }
+
     let encOpts = [{
-        name: "openssl加密",
-        value: "opensslEnc"
+        name: "opensslAES加密",
+        value: "opensslAesEnc"
     }, {
         name: "md5",
         value: "md5"
@@ -78,17 +111,35 @@
     }, {
         name: "url编码",
         value: "urlEnc"
+    }, {
+        name: "8进制编码",
+        value: "octEnc"
+    }, {
+        name: "16进制编码",
+        value: "hexEnc"
+    }, {
+        name: "大写",
+        value: "upper"
     }];
 
     let decOpts = [{
-        name: "openssl解密",
-        value: "opensslDec"
+        name: "opensslAES解密",
+        value: "opensslAesDec"
     }, {
         name: "base64解码",
         value: "base64Dec"
     }, {
         name: "url解码",
         value: "urlDec"
+    }, {
+        name: "8进制解码",
+        value: "octDec"
+    }, {
+        name: "16进制解码",
+        value: "hexDec"
+    }, {
+        name: "小写",
+        value: "lower"
     }];
 
 </script>
@@ -96,36 +147,43 @@
 <div class="container-fluid">
     <Alert />
 
-    <div class="mb-3">
-        <label for="inputText" class="form-label">加解密文本</label>
-        <textarea bind:value={inputText} class="form-control" id="inputText" rows="3"></textarea>
+    <div class="mb-3 mt-3">
+        <label for="inputText" class="form-label">编解码文本</label>
+        <textarea bind:value={inputText} class="form-control" id="inputText" rows="3" aria-describedby="inputHelp"></textarea>
+        {#if inputLen > 0}
+            <div id="inputHelp" class="form-text"><span class="text-danger">{inputLen}</span> chars</div>
+        {/if}
     </div>
-    加密：
+    编码：
     {#each encOpts as encOpt}
-        <div class="form-check form-check-inline mb-3">
+        <div class="form-check form-check-inline">
             <input on:change={toggleSecret} bind:group={opt} class="form-check-input" type="radio" name="opt" id={encOpt.value} value={encOpt.value}>
             <label class="form-check-label" for={encOpt.value}>{encOpt.name}</label>
         </div>
     {/each}
-    <br/>
-    解密：
+    <hr/>
+    解码：
     {#each decOpts as decOpt}
-        <div class="form-check form-check-inline mb-3">
+        <div class="form-check form-check-inline">
             <input on:change={toggleSecret} bind:group={opt} class="form-check-input" type="radio" name="opt" id={decOpt.value} value={decOpt.value}>
             <label class="form-check-label" for={decOpt.value}>{decOpt.name}</label>
         </div>
     {/each}
+    <hr/>
     {#if showSecret}
         <div class="mb-3">
             <label for="secretKey" class="form-label">密钥</label>
             <input bind:value={secretKey} class="form-control" id="secretKey" >
         </div>
     {/if}
-    <br/>
-    <button on:click={trans} type="button" class="btn btn-primary mb-3">转换</button>
-    <button on:click={insteadIO} type="button" class="btn btn-primary mb-3">输出替换输入</button>
-    <div class="mb-3">
+    <button on:click={transform} type="button" class="btn btn-outline-primary btn-sm mb-3">转换</button>
+    <button on:click={replaceInput} type="button" class="btn btn-outline-secondary btn-sm mb-3">输入替换</button>
+    <button on:click={clean} type="button" class="btn btn-outline-warning btn-sm mb-3">清空</button>
+    <div>
         <label for="outputText" class="form-label">输出文本</label>
-        <textarea bind:value={outputText} class="form-control" id="outputText" rows="3"></textarea>
+        <textarea bind:value={outputText} class="form-control" id="outputText" rows="3" aria-describedby="outputHelp"></textarea>
+        {#if outputLen > 0}
+            <div id="outputHelp" class="form-text"><span class="text-danger">{outputLen}</span> chars</div>
+        {/if}
     </div>
 </div>

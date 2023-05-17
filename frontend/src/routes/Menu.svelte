@@ -2,8 +2,10 @@
     import { onMount } from 'svelte';
 
     let menus = [
-        {name: "文本加解密", url: "/edtext", selected: false},
-        {name: "文件加解密", url: "/edfile", selected: false}
+        {name: "文本编解码", url: "/edtext", selected: false},
+        // {name: "文件编解码", url: "/edfile", selected: false},
+        {name: "进制转换", url: "/conversion", selected: false},
+        // {name: "时间戳工具", url: "/edfile", selected: false}
     ];
 
     onMount(() => {
@@ -46,7 +48,7 @@
 <div class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark" style="width: 280px;">
     <a href="/" on:click={selectedMenu} class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none">
         <svg class="bi pe-none me-2" width="40" height="32"><use xlink:href="#bootstrap"/></svg>
-        <span class="fs-4">Sidebar</span>
+        <span class="fs-4">otool</span>
     </a>
     <hr>
     <ul class="nav nav-pills flex-column mb-auto">
