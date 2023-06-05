@@ -5,8 +5,6 @@ export function Base64Dec(arg1:string):Promise<string>;
 
 export function Base64Enc(arg1:string):Promise<string>;
 
-export function Greet(arg1:string):Promise<string>;
-
 export function HexDec(arg1:string):Promise<string>;
 
 export function HexEnc(arg1:string):Promise<string>;

@@ -1,4 +1,4 @@
-package internal
+package tool
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 const (
 	CBC_SALT_LEN = 8
 	CBC_KEY_LEN  = 32
-	CBC_CRED_LEN = 48 //CBC_BLOCK_LEN(16)+CBC_KEY_LEN(32)
+	CBC_CRED_LEN = 48 // CBC_BLOCK_LEN(16)+CBC_KEY_LEN(32)
 )
 
 // 预先生成PrePadPatterns
@@ -148,7 +148,7 @@ func OpenSSLAesDec(encryptText, pass []byte) ([]byte, error) {
 	cbc := cipher.NewCBCDecrypter(block, iv)
 	cbc.CryptBlocks(encryptText[aes.BlockSize:], encryptText[aes.BlockSize:])
 
-	//删除加密时候填充的padding
+	// 删除加密时候填充的padding
 	return pkcs7UnPadding(encryptText[aes.BlockSize:])
 }
 
@@ -181,8 +181,8 @@ func PKCS5Padding(ciphertext []byte) []byte {
 
 func PKCS7Padding(ciphertext []byte, blockSize int) []byte {
 	padding := blockSize - len(ciphertext)%blockSize
-	//padText := bytes.Repeat([]byte{byte(padding)}, padding)
-	//return append(ciphertext, padText...)
+	// padText := bytes.Repeat([]byte{byte(padding)}, padding)
+	// return append(ciphertext, padText...)
 	return append(ciphertext, prePadPatterns[padding]...)
 }
 

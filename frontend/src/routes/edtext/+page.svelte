@@ -1,5 +1,5 @@
 <script>
-    import * as otool from "../../../wailsjs/go/main/App.js";
+    import * as otool from "../../../wailsjs/go/srvs/Encrypt.js";
     import Alert, {showAlert, closeAlert} from '../Alert.svelte';
 
     let showSecret = false;
@@ -94,7 +94,7 @@
     }
 
     let encOpts = [{
-        name: "opensslAES加密",
+        name: "AES-256-CBC加密",
         value: "opensslAesEnc"
     }, {
         name: "md5",
@@ -123,7 +123,7 @@
     }];
 
     let decOpts = [{
-        name: "opensslAES解密",
+        name: "AES-256-CBC解密",
         value: "opensslAesDec"
     }, {
         name: "base64解码",
