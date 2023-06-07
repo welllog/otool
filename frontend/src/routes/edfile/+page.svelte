@@ -1,27 +1,59 @@
 <script>
-    import { OpenFileDialog } from "../../../wailsjs/go/internal/app.js";
-    import Alert, { showAlert } from "../Alert.svelte";
+    import * as app from "$wailsjs/go/internal/App";
+    import * as enc from "$wailsjs/go/srvs/Encrypt";
+    import Alert, {showAlert, closeAlert} from "../Alert.svelte";
 
-    function selectFile(e) {
-        e.preventDefault();
+    let loading = false;
+    let disabled = false;
 
-        console.log(e)
+    async function DecryptFile() {
+        try {
+            const pathName = await app.OpenFileDialog();
+            if (pathName.length === 0) return;
 
-        OpenFileDialog()
-            .then(pathName => {
-                console.log(pathName)
-                // 将文件名写入file input输入框
-                document.getElementById("formFileLg").value = pathName;
-            })
-            .catch(err => {showAlert("danger", err.toString())});
+            const savePath = await app.OpenDirectoryDialog();
+            if (savePath.length === 0) {
+                showAlert("danger", "please select save folder");
+                return
+            }
+
+            loading = true;
+            await enc.EncryptFile(pathName, savePath, "123456");
+            return "success"
+        } catch (err) {
+            showAlert("danger", err.toString());
+        } finally {
+            loading = false;
+        }
     }
 
+    function selectFile() {
+        closeAlert()
+        disabled = true
+        DecryptFile()
+            .then((res) => {if (res === "success") showAlert("success", "encrypt success")})
+            .finally(() => disabled = false)
+    }
 </script>
 
 <div class="container-fluid">
-    <Alert />
+    <Alert/>
 
-    <div>
-        <button on:click={selectFile} type="button" class="btn btn-outline-secondary btn-lg">选择文件</button>
+    <div class="mt-3">
+        <button
+            on:click={selectFile}
+            class:disabled={disabled}
+            type="button"
+            class="btn btn-outline-secondary btn-lg"
+        >
+        {#if loading}
+        <span
+            class="spinner-border spinner-border-sm"
+            role="status"
+            aria-hidden="true"
+        />
+        {/if}
+            选择文件
+        </button>
     </div>
 </div>

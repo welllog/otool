@@ -8,20 +8,24 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/welllog/olog"
+	"github.com/welllog/otool/internal/errx"
 	"github.com/welllog/otool/internal/tool"
 )
 
 type Encrypt struct{}
 
 func (a *Encrypt) OpenSSLAesEnc(in, secret string) (string, error) {
-	return tool.OpenSSLAesEncToStr(in, secret)
+	return errx.LogStr(tool.OpenSSLAesEncToStr(in, secret))
 }
 
 func (a *Encrypt) OpenSSLAesDec(in, secret string) (string, error) {
-	return tool.OpenSSlAesDecToStr(in, secret)
+	return errx.LogStr(tool.OpenSSlAesDecToStr(in, secret))
 }
 
 func (a *Encrypt) Md5(in string) string {
@@ -46,7 +50,7 @@ func (a *Encrypt) Base64Enc(in string) string {
 func (a *Encrypt) Base64Dec(in string) (string, error) {
 	b, err := base64.StdEncoding.DecodeString(in)
 	if err != nil {
-		return "", err
+		return "", errx.Log(err)
 	}
 	return tool.BytesToString(b), nil
 }
@@ -56,7 +60,7 @@ func (a *Encrypt) UrlEnc(in string) string {
 }
 
 func (a *Encrypt) UrlDec(in string) (string, error) {
-	return url.QueryUnescape(in)
+	return errx.LogStr(url.QueryUnescape(in))
 }
 
 func (a *Encrypt) OctEnc(in string) string {
@@ -93,7 +97,30 @@ func (a *Encrypt) HexEnc(in string) string {
 func (a *Encrypt) HexDec(in string) (string, error) {
 	b, err := hex.DecodeString(in)
 	if err != nil {
-		return "", err
+		return "", errx.Log(err)
 	}
 	return tool.BytesToString(b), nil
+}
+
+func (a *Encrypt) EncryptFile(pathName, savePath, secret string) error {
+	olog.Debugf("pathName: %s, savePath: %s", pathName, savePath)
+
+	saveName := filepath.Base(pathName) + ".enc"
+	saveName = filepath.Join(savePath, saveName)
+
+	olog.Debugf("EncryptFile save file name: %s", saveName)
+
+	r, err := os.Open(pathName)
+	if err != nil {
+		return errx.Logf("open file error: %s", err)
+	}
+	defer r.Close()
+
+	w, err := os.Create(saveName)
+	if err != nil {
+		return errx.Logf("create file error: %s", err)
+	}
+	defer w.Close()
+
+	return errx.Log(tool.EncryptFile(r, w, secret))
 }

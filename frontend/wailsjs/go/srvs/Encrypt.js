@@ -10,6 +10,10 @@ export function Base64Enc(arg1) {
   return window['go']['srvs']['Encrypt']['Base64Enc'](arg1);
 }
 
+export function EncryptFile(arg1, arg2, arg3) {
+  return window['go']['srvs']['Encrypt']['EncryptFile'](arg1, arg2, arg3);
+}
+
 export function HexDec(arg1) {
   return window['go']['srvs']['Encrypt']['HexDec'](arg1);
 }

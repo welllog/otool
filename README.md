@@ -8,13 +8,23 @@
 * ``cd frontend; npm install bootstrap@5.3.0-alpha1`` 安装bootstrap
 * frontend/src/routes下面添加+layout.ts文件,输入``export const ssr = false;export const prerender = true;``
 * 引入bootstrap: import 'bootstrap/dist/css/bootstrap.min.css'  import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+* ``npm install @types/node``
 * vite.config.js中加入：
 ```javascript
-server: {
-		fs: {
-			allow: ['./wailsjs/go']
-		}
-	}
+import path from 'path';
+export default defineConfig({
+    plugins: [sveltekit()],
+    resolve: {
+        alias: {
+            '$wailsjs': path.resolve(__dirname, './wailsjs')
+        }
+    },
+    server: {
+        fs: {
+            allow: ['./wailsjs']
+        }
+    }
+});
 ```
 
 ##### 构建命令

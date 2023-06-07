@@ -191,3 +191,93 @@ func PKCSUnPadding(data []byte) []byte {
 	paddingNum := int(data[length-1])
 	return data[:(length - paddingNum)]
 }
+
+func EncryptFile(in io.Reader, out io.Writer, pass string) error {
+	var salt [CBC_SALT_LEN]byte
+	var cred creds
+	err := fillSaltAndCred(salt[:], cred[:], StringToBytes(pass))
+	if err != nil {
+		return err
+	}
+
+	key := cred[:CBC_KEY_LEN] // 32 bytes, 256 / 8
+	iv := cred[CBC_KEY_LEN:]
+
+	_, err = out.Write(salt[:])
+	if err != nil {
+		return fmt.Errorf("write salt error: %w", err)
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return fmt.Errorf("NewCipher error: %w", err)
+	}
+
+	stream := cipher.NewCFBEncrypter(block, iv)
+	writer := &cipher.StreamWriter{S: stream, W: out}
+	_, err = io.Copy(writer, in)
+	if err != nil {
+		return fmt.Errorf("write encrypt data error: %w", err)
+	}
+
+	return nil
+}
+
+func DecryptFile(in io.Reader, out io.Writer, pass string) error {
+	var salt [CBC_SALT_LEN]byte
+	n, err := in.Read(salt[:])
+	if err != nil {
+		return fmt.Errorf("read encrypt file error: %w", err)
+	}
+	if n != CBC_SALT_LEN {
+		return fmt.Errorf("read encrypt file error: read len=%d", n)
+	}
+
+	var cred creds
+	fillCred(salt[:], cred[:], StringToBytes(pass))
+	key := cred[:CBC_KEY_LEN] // 32 bytes, 256 / 8
+	iv := cred[CBC_KEY_LEN:]
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return fmt.Errorf("NewCipher error: %w", err)
+	}
+
+	stream := cipher.NewCFBDecrypter(block, iv)
+	reader := &cipher.StreamReader{S: stream, R: in}
+
+	_, err = io.Copy(out, reader)
+	if err != nil {
+		return fmt.Errorf("decrypt file error: %w", err)
+	}
+
+	return nil
+}
+
+func fillSaltAndCred(salt, cred, pass []byte) error {
+	_, err := io.ReadFull(rand.Reader, salt)
+	if err != nil {
+		return fmt.Errorf("generate random salt error: %w", err)
+	}
+
+	fillCred(salt, cred, pass)
+
+	return nil
+}
+
+func fillCred(salt, cred, pass []byte) {
+	buf := make([]byte, 0, 16+len(pass)+len(salt))
+	var prevSum [16]byte
+	for i := 0; i < 3; i++ { // salted 48byte, md5 16byte, three times could fill
+		n := 0 // first prevSum length is zero,so n must be zero
+		if i > 0 {
+			n = 16
+		}
+		buf = buf[:n+len(pass)+len(salt)]
+		copy(buf, prevSum[:])
+		copy(buf[n:], pass)
+		copy(buf[n+len(pass):], salt)
+		prevSum = md5.Sum(buf)        // md5(prevSum + pass + salt)
+		copy(cred[i*16:], prevSum[:]) // concat every md5
+	}
+}

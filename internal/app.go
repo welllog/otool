@@ -32,6 +32,19 @@ func (a *App) OpenFileDialog() (string, error) {
 	})
 }
 
+func (a *App) OpenDirectoryDialog() (string, error) {
+	return runtime.OpenDirectoryDialog(a.ctx, runtime.OpenDialogOptions{
+		ShowHiddenFiles: true,
+	})
+}
+
+func (a *App) SaveFileDialog() (string, error) {
+	return runtime.SaveFileDialog(a.ctx, runtime.SaveDialogOptions{
+		ShowHiddenFiles:      true,
+		CanCreateDirectories: true,
+	})
+}
+
 func (a *App) warnAlert(msg string) {
 	_, _ = runtime.MessageDialog(a.ctx, runtime.MessageDialogOptions{
 		Type:         runtime.WarningDialog,
