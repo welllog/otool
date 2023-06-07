@@ -5,6 +5,8 @@ export function Base64Dec(arg1:string):Promise<string>;
 
 export function Base64Enc(arg1:string):Promise<string>;
 
+export function DecryptFile(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function EncryptFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function HexDec(arg1:string):Promise<string>;
@@ -12,6 +14,8 @@ export function HexDec(arg1:string):Promise<string>;
 export function HexEnc(arg1:string):Promise<string>;
 
 export function Md5(arg1:string):Promise<string>;
+
+export function Md5File(arg1:string):Promise<string>;
 
 export function OctDec(arg1:string):Promise<string>;
 
@@ -23,7 +27,11 @@ export function OpenSSLAesEnc(arg1:string,arg2:string):Promise<string>;
 
 export function Sha1(arg1:string):Promise<string>;
 
+export function Sha1File(arg1:string):Promise<string>;
+
 export function Sha256(arg1:string):Promise<string>;
+
+export function Sha256File(arg1:string):Promise<string>;
 
 export function UrlDec(arg1:string):Promise<string>;
 

@@ -10,6 +10,10 @@ export function Base64Enc(arg1) {
   return window['go']['srvs']['Encrypt']['Base64Enc'](arg1);
 }
 
+export function DecryptFile(arg1, arg2, arg3) {
+  return window['go']['srvs']['Encrypt']['DecryptFile'](arg1, arg2, arg3);
+}
+
 export function EncryptFile(arg1, arg2, arg3) {
   return window['go']['srvs']['Encrypt']['EncryptFile'](arg1, arg2, arg3);
 }
@@ -24,6 +28,10 @@ export function HexEnc(arg1) {
 
 export function Md5(arg1) {
   return window['go']['srvs']['Encrypt']['Md5'](arg1);
+}
+
+export function Md5File(arg1) {
+  return window['go']['srvs']['Encrypt']['Md5File'](arg1);
 }
 
 export function OctDec(arg1) {
@@ -46,8 +54,16 @@ export function Sha1(arg1) {
   return window['go']['srvs']['Encrypt']['Sha1'](arg1);
 }
 
+export function Sha1File(arg1) {
+  return window['go']['srvs']['Encrypt']['Sha1File'](arg1);
+}
+
 export function Sha256(arg1) {
   return window['go']['srvs']['Encrypt']['Sha256'](arg1);
+}
+
+export function Sha256File(arg1) {
+  return window['go']['srvs']['Encrypt']['Sha256File'](arg1);
 }
 
 export function UrlDec(arg1) {

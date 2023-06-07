@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -123,4 +124,89 @@ func (a *Encrypt) EncryptFile(pathName, savePath, secret string) error {
 	defer w.Close()
 
 	return errx.Log(tool.EncryptFile(r, w, secret))
+}
+
+func (a *Encrypt) DecryptFile(pathName, savePath, secret string) error {
+	olog.Debugf("pathName: %s, savePath: %s", pathName, savePath)
+
+	saveName := filepath.Base(pathName)
+	if strings.HasSuffix(saveName, ".enc") {
+		saveName = strings.TrimSuffix(saveName, ".enc")
+	} else {
+		index := strings.Index(saveName, ".")
+		if index > 0 {
+			saveName = saveName[:index] + ".dec" + saveName[index:]
+		} else {
+			saveName += ".dec"
+		}
+	}
+
+	saveName = filepath.Join(savePath, saveName)
+
+	olog.Debugf("EncryptFile save file name: %s", saveName)
+
+	r, err := os.Open(pathName)
+	if err != nil {
+		return errx.Logf("open file error: %s", err)
+	}
+	defer r.Close()
+
+	w, err := os.Create(saveName)
+	if err != nil {
+		return errx.Logf("create file error: %s", err)
+	}
+	defer w.Close()
+
+	return errx.Log(tool.DecryptFile(r, w, secret))
+}
+
+func (a *Encrypt) Md5File(pathName string) (string, error) {
+	r, err := os.Open(pathName)
+	if err != nil {
+		return "", errx.Logf("open file error: %s", err)
+	}
+	defer r.Close()
+
+	h := md5.New()
+	_, err = io.Copy(h, r)
+	if err != nil {
+		return "", errx.Log(err)
+	}
+
+	b := h.Sum(nil)
+	return hex.EncodeToString(b), nil
+}
+
+func (a *Encrypt) Sha1File(pathName string) (string, error) {
+	r, err := os.Open(pathName)
+	if err != nil {
+		return "", errx.Logf("open file error: %s", err)
+	}
+	defer r.Close()
+
+	h := sha1.New()
+	_, err = io.Copy(h, r)
+	if err != nil {
+		return "", errx.Log(err)
+	}
+
+	b := h.Sum(nil)
+	return hex.EncodeToString(b), nil
+}
+
+func (a *Encrypt) Sha256File(pathName string) (string, error) {
+	r, err := os.Open(pathName)
+	if err != nil {
+		return "", errx.Logf("open file error: %s", err)
+	}
+	defer r.Close()
+
+	h := sha256.New()
+	_, err = io.Copy(h, r)
+	if err != nil {
+		return "", errx.Log(err)
+	}
+
+	b := h.Sum(nil)
+	return hex.EncodeToString(b), nil
 }
