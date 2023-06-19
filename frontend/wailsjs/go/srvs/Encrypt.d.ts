@@ -7,6 +7,10 @@ export function Base64Enc(arg1:string):Promise<string>;
 
 export function DecryptFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function DefaultDecryptFilePath(arg1:string):Promise<Array<string>>;
+
+export function DefaultEncryptFilePath(arg1:string):Promise<Array<string>>;
+
 export function EncryptFile(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function HexDec(arg1:string):Promise<string>;

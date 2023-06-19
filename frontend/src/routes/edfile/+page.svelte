@@ -1,11 +1,13 @@
 <script>
     import * as app from "$wailsjs/go/internal/App";
     import * as enc from "$wailsjs/go/srvs/Encrypt";
+    import * as rt from "$wailsjs/runtime/runtime"
     import Alert, {showAlert, closeAlert} from "../Alert.svelte";
 
-    let loading = false, disabled = false, showSecret = false, showOutput = false;
-    let opt = '', secretKey = '', outputText = '';
+    let loading = false, disabled = false, showSecret = true, showOutput = false;
+    let opt = 'encrypt', secretKey = '', outputText = '';
     let outputLen = 0
+    let inputFile = '', outputPath = '', outputName = '';
 
     async function encryptFile() {
         try {
@@ -86,27 +88,57 @@
         }
     }
 
+    async function openFile() {
+        try {
+            disabled = true;
+
+            const pathName = await app.OpenFileDialog();
+            if (pathName.length === 0) return;
+            inputFile = pathName
+
+            switch (opt) {
+                case "encrypt":
+                    [outputPath, outputName] = await enc.DefaultEncryptFilePath(pathName)
+                    break;
+                case "decrypt":
+                    [outputPath, outputName] = await enc.DefaultDecryptFilePath(pathName)
+                    break;
+            }
+
+        } catch (err) {
+            showAlert("danger", err.toString());
+        } finally {
+            disabled = false;
+        }
+    }
+
+    async function openFolder() {
+
+    }
+
     function selectFile() {
         closeAlert();
-        disabled = true;
+        openFile()
 
-        switch (opt) {
-            case "encrypt":
-                encryptFile()
-                    .then((res) => {if (res === "success") showAlert("success", "encrypt success")})
-                    .finally(() => disabled = false)
-                return
-            case "decrypt":
-                decryptFile()
-                    .then((res) => {if (res === "success") showAlert("success", "decrypt success")})
-                    .finally(() => disabled = false)
-                return
-            default:
-                hashFile(opt)
-                    .then()
-                    .finally(() => disabled = false)
-                return
-        }
+        // disabled = true;
+        //
+        // switch (opt) {
+        //     case "encrypt":
+        //         encryptFile()
+        //             .then((res) => {if (res === "success") showAlert("success", "encrypt success")})
+        //             .finally(() => disabled = false)
+        //         return
+        //     case "decrypt":
+        //         decryptFile()
+        //             .then((res) => {if (res === "success") showAlert("success", "decrypt success")})
+        //             .finally(() => disabled = false)
+        //         return
+        //     default:
+        //         hashFile(opt)
+        //             .then()
+        //             .finally(() => disabled = false)
+        //         return
+        // }
     }
 
     function toggleSecret(e) {
@@ -115,6 +147,27 @@
         outputLen = 0;
 
         if (["encrypt", "decrypt"].indexOf(e.target.value) >= 0) {
+            if (e.target.value.length > 0) {
+                if (e.target.value === "encrypt") {
+                    enc.DefaultEncryptFilePath(inputFile)
+                        .then(([path, name]) => {
+                            outputPath = path;
+                            outputName = name;
+                        })
+                        .catch((err) => {
+                            showAlert("danger", err.toString());
+                        });
+                } else if (e.target.value === "decrypt") {
+                    enc.DefaultDecryptFilePath(inputFile)
+                        .then(([path, name]) => {
+                            outputPath = path;
+                            outputName = name;
+                        })
+                        .catch((err) => {
+                            showAlert("danger", err.toString());
+                        });
+                }
+            }
             showSecret = true;
             showOutput = false;
             return;
@@ -193,12 +246,12 @@
         </div>
     {/if}
 
-    <div class="mt-3">
+    <div class="mt-3 input-group">
         <button
                 on:click={selectFile}
                 class:disabled={disabled}
                 type="button"
-                class="btn btn-outline-secondary btn-lg"
+                class="btn btn-outline-secondary btn-sm"
         >
             {#if loading}
         <span
@@ -209,7 +262,31 @@
             {/if}
             选择文件
         </button>
+        <input type="text" bind:value={inputFile} disabled="true"  class="form-control">
     </div>
+
+    {#if !showOutput}
+    <div class="mt-3 input-group">
+        <button
+                on:click={selectFile}
+                class:disabled={disabled}
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+        >
+            {#if loading}
+        <span
+                class="spinner-border spinner-border-sm"
+                role="status"
+                aria-hidden="true"
+        />
+            {/if}
+            选择保存目录
+        </button>
+        <input type="text" bind:value={outputPath} disabled="true"  class="form-control">
+        <span class="input-group-text">保存文件名</span>
+        <input type="text" bind:value={outputName} class:disabled={disabled}  class="form-control">
+    </div>
+    {/if}
 
     {#if showOutput}
     <div class="mt-3">

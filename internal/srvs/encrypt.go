@@ -1,59 +1,47 @@
 package srvs
 
 import (
-	"crypto/md5"
-	"crypto/sha1"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
-	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
+	"github.com/welllog/golib/cryptz"
+	"github.com/welllog/golib/hashz"
+	"github.com/welllog/golib/strz"
 	"github.com/welllog/olog"
 	"github.com/welllog/otool/internal/errx"
-	"github.com/welllog/otool/internal/tool"
 )
 
 type Encrypt struct{}
 
 func (a *Encrypt) OpenSSLAesEnc(in, secret string) (string, error) {
-	return errx.LogStr(tool.OpenSSLAesEncToStr(in, secret))
+	return errx.LogStr(cryptz.EncryptToBase64String(in, secret))
 }
 
 func (a *Encrypt) OpenSSLAesDec(in, secret string) (string, error) {
-	return errx.LogStr(tool.OpenSSlAesDecToStr(in, secret))
+	return errx.LogStr(cryptz.DecryptBase64ToString(in, secret))
 }
 
 func (a *Encrypt) Md5(in string) string {
-	h := md5.Sum(tool.StringToBytes(in))
-	return hex.EncodeToString(h[:])
+	return hashz.Md5ToString(in)
 }
 
 func (a *Encrypt) Sha1(in string) string {
-	h := sha1.Sum(tool.StringToBytes(in))
-	return hex.EncodeToString(h[:])
+	return hashz.Sha1ToString(in)
 }
 
 func (a *Encrypt) Sha256(in string) string {
-	h := sha256.Sum256(tool.StringToBytes(in))
-	return hex.EncodeToString(h[:])
+	return hashz.Sha256ToString(in)
 }
 
 func (a *Encrypt) Base64Enc(in string) string {
-	return base64.StdEncoding.EncodeToString(tool.StringToBytes(in))
+	return strz.Base64EncodeToString(in, base64.StdEncoding)
 }
 
 func (a *Encrypt) Base64Dec(in string) (string, error) {
-	b, err := base64.StdEncoding.DecodeString(in)
-	if err != nil {
-		return "", errx.Log(err)
-	}
-	return tool.BytesToString(b), nil
+	return errx.LogStr(strz.Base64DecodeToString(in, base64.StdEncoding))
 }
 
 func (a *Encrypt) UrlEnc(in string) string {
@@ -65,42 +53,19 @@ func (a *Encrypt) UrlDec(in string) (string, error) {
 }
 
 func (a *Encrypt) OctEnc(in string) string {
-	var buf strings.Builder
-	buf.Grow(len(in) * 4)
-	for _, char := range in {
-		if char < 128 {
-			buf.WriteString(fmt.Sprintf("\\%o", char))
-		} else {
-			bs := []byte(string(char))
-			for _, b := range bs {
-				buf.WriteString(fmt.Sprintf("\\%o", b))
-			}
-		}
-	}
-	return buf.String()
+	return strz.OctalEncodeToString(in)
 }
 
 func (a *Encrypt) OctDec(in string) string {
-	arr := strings.Split(in, "\\")
-	var buf strings.Builder
-	buf.Grow(len(in))
-	for _, v := range arr {
-		n, _ := strconv.ParseInt(v, 8, 64)
-		buf.WriteByte(byte(n))
-	}
-	return buf.String()
+	return strz.OctalDecodeToString(in)
 }
 
 func (a *Encrypt) HexEnc(in string) string {
-	return hex.EncodeToString(tool.StringToBytes(in))
+	return strz.HexEncodeToString(in)
 }
 
 func (a *Encrypt) HexDec(in string) (string, error) {
-	b, err := hex.DecodeString(in)
-	if err != nil {
-		return "", errx.Log(err)
-	}
-	return tool.BytesToString(b), nil
+	return errx.LogStr(strz.HexDecodeToString(in))
 }
 
 func (a *Encrypt) EncryptFile(pathName, savePath, secret string) error {
@@ -123,7 +88,7 @@ func (a *Encrypt) EncryptFile(pathName, savePath, secret string) error {
 	}
 	defer w.Close()
 
-	return errx.Log(tool.EncryptFile(r, w, secret))
+	return errx.Log(cryptz.EncryptStreamTo(w, r, secret))
 }
 
 func (a *Encrypt) DecryptFile(pathName, savePath, secret string) error {
@@ -157,7 +122,7 @@ func (a *Encrypt) DecryptFile(pathName, savePath, secret string) error {
 	}
 	defer w.Close()
 
-	return errx.Log(tool.DecryptFile(r, w, secret))
+	return errx.Log(cryptz.DecryptStreamTo(w, r, secret))
 }
 
 func (a *Encrypt) Md5File(pathName string) (string, error) {
@@ -167,14 +132,12 @@ func (a *Encrypt) Md5File(pathName string) (string, error) {
 	}
 	defer r.Close()
 
-	h := md5.New()
-	_, err = io.Copy(h, r)
+	b, err := hashz.Md5Stream(r)
 	if err != nil {
 		return "", errx.Log(err)
 	}
 
-	b := h.Sum(nil)
-	return hex.EncodeToString(b), nil
+	return strz.UnsafeString(b), nil
 }
 
 func (a *Encrypt) Sha1File(pathName string) (string, error) {
@@ -184,14 +147,12 @@ func (a *Encrypt) Sha1File(pathName string) (string, error) {
 	}
 	defer r.Close()
 
-	h := sha1.New()
-	_, err = io.Copy(h, r)
+	b, err := hashz.Sha1Stream(r)
 	if err != nil {
 		return "", errx.Log(err)
 	}
 
-	b := h.Sum(nil)
-	return hex.EncodeToString(b), nil
+	return strz.UnsafeString(b), nil
 }
 
 func (a *Encrypt) Sha256File(pathName string) (string, error) {
@@ -201,12 +162,31 @@ func (a *Encrypt) Sha256File(pathName string) (string, error) {
 	}
 	defer r.Close()
 
-	h := sha256.New()
-	_, err = io.Copy(h, r)
+	b, err := hashz.Sha256Stream(r)
 	if err != nil {
 		return "", errx.Log(err)
 	}
 
-	b := h.Sum(nil)
-	return hex.EncodeToString(b), nil
+	return strz.UnsafeString(b), nil
+}
+
+func (a *Encrypt) DefaultEncryptFilePath(pathName string) []string {
+	pathName = pathName + ".enc"
+	return []string{filepath.Dir(pathName), filepath.Base(pathName)}
+}
+
+func (a *Encrypt) DefaultDecryptFilePath(pathName string) []string {
+	name := filepath.Base(pathName)
+	if strings.HasSuffix(name, ".enc") {
+		name = strings.TrimSuffix(name, ".enc")
+	} else {
+		index := strings.LastIndex(name, ".")
+		if index > 0 {
+			name = name[:index] + ".dec" + name[index:]
+		} else {
+			name += ".dec"
+		}
+	}
+
+	return []string{filepath.Dir(pathName), name}
 }

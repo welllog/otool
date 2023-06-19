@@ -14,6 +14,14 @@ export function DecryptFile(arg1, arg2, arg3) {
   return window['go']['srvs']['Encrypt']['DecryptFile'](arg1, arg2, arg3);
 }
 
+export function DefaultDecryptFilePath(arg1) {
+  return window['go']['srvs']['Encrypt']['DefaultDecryptFilePath'](arg1);
+}
+
+export function DefaultEncryptFilePath(arg1) {
+  return window['go']['srvs']['Encrypt']['DefaultEncryptFilePath'](arg1);
+}
+
 export function EncryptFile(arg1, arg2, arg3) {
   return window['go']['srvs']['Encrypt']['EncryptFile'](arg1, arg2, arg3);
 }
