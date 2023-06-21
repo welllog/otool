@@ -10,8 +10,8 @@ export function Base64Enc(arg1) {
   return window['go']['srvs']['Encrypt']['Base64Enc'](arg1);
 }
 
-export function DecryptFile(arg1, arg2, arg3) {
-  return window['go']['srvs']['Encrypt']['DecryptFile'](arg1, arg2, arg3);
+export function DecryptFile(arg1, arg2, arg3, arg4) {
+  return window['go']['srvs']['Encrypt']['DecryptFile'](arg1, arg2, arg3, arg4);
 }
 
 export function DefaultDecryptFilePath(arg1) {
@@ -22,8 +22,8 @@ export function DefaultEncryptFilePath(arg1) {
   return window['go']['srvs']['Encrypt']['DefaultEncryptFilePath'](arg1);
 }
 
-export function EncryptFile(arg1, arg2, arg3) {
-  return window['go']['srvs']['Encrypt']['EncryptFile'](arg1, arg2, arg3);
+export function EncryptFile(arg1, arg2, arg3, arg4) {
+  return window['go']['srvs']['Encrypt']['EncryptFile'](arg1, arg2, arg3, arg4);
 }
 
 export function HexDec(arg1) {

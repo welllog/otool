@@ -2,6 +2,8 @@ package srvs
 
 import (
 	"encoding/base64"
+	"errors"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -10,7 +12,6 @@ import (
 	"github.com/welllog/golib/cryptz"
 	"github.com/welllog/golib/hashz"
 	"github.com/welllog/golib/strz"
-	"github.com/welllog/olog"
 	"github.com/welllog/otool/internal/errx"
 )
 
@@ -76,21 +77,20 @@ func (a *Encrypt) HexDec(in string) (string, error) {
 	return errx.LogStr(strz.HexDecodeToString(in))
 }
 
-func (a *Encrypt) EncryptFile(pathName, savePath, secret string) error {
-	olog.Debugf("pathName: %s, savePath: %s", pathName, savePath)
-
-	saveName := filepath.Base(pathName) + ".enc"
-	saveName = filepath.Join(savePath, saveName)
-
-	olog.Debugf("EncryptFile save file name: %s", saveName)
-
+func (a *Encrypt) EncryptFile(pathName, savePath, saveName, secret string) error {
 	r, err := os.Open(pathName)
 	if err != nil {
-		return errx.Logf("open file error: %s", err)
+		return errx.Logf("open file error: %s", err.Error())
 	}
 	defer r.Close()
 
-	w, err := os.Create(saveName)
+	savePathName := filepath.Join(savePath, saveName)
+	_, err = os.Stat(savePathName)
+	if err == nil || errors.Is(err, fs.ErrExist) {
+		return errx.Logf("file already exists: %s", savePathName)
+	}
+
+	w, err := os.OpenFile(savePathName, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
 	if err != nil {
 		return errx.Logf("create file error: %s", err)
 	}
@@ -99,32 +99,20 @@ func (a *Encrypt) EncryptFile(pathName, savePath, secret string) error {
 	return errx.Log(cryptz.EncryptStreamTo(w, r, secret))
 }
 
-func (a *Encrypt) DecryptFile(pathName, savePath, secret string) error {
-	olog.Debugf("pathName: %s, savePath: %s", pathName, savePath)
-
-	saveName := filepath.Base(pathName)
-	if strings.HasSuffix(saveName, ".enc") {
-		saveName = strings.TrimSuffix(saveName, ".enc")
-	} else {
-		index := strings.Index(saveName, ".")
-		if index > 0 {
-			saveName = saveName[:index] + ".dec" + saveName[index:]
-		} else {
-			saveName += ".dec"
-		}
-	}
-
-	saveName = filepath.Join(savePath, saveName)
-
-	olog.Debugf("EncryptFile save file name: %s", saveName)
-
+func (a *Encrypt) DecryptFile(pathName, savePath, saveName, secret string) error {
 	r, err := os.Open(pathName)
 	if err != nil {
 		return errx.Logf("open file error: %s", err)
 	}
 	defer r.Close()
 
-	w, err := os.Create(saveName)
+	savePathName := filepath.Join(savePath, saveName)
+	_, err = os.Stat(savePathName)
+	if err == nil || errors.Is(err, fs.ErrExist) {
+		return errx.Logf("file already exists: %s", savePathName)
+	}
+
+	w, err := os.OpenFile(savePathName, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
 	if err != nil {
 		return errx.Logf("create file error: %s", err)
 	}

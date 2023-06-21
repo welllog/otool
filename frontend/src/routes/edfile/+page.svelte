@@ -9,23 +9,43 @@
     let outputLen = 0
     let inputFile = '', outputPath = '', outputName = '';
 
+    function transform() {
+        closeAlert()
+
+        if (inputFile.length === 0) {
+            showAlert("danger", "input file is empty");
+            return
+        }
+
+        disabled = true;
+
+        switch (opt) {
+            case "encrypt":
+                encryptFile()
+                    .then((res) => {if (res === "success") showAlert("success", "encrypt success")})
+                    .finally(() => disabled = false)
+                return
+            case "decrypt":
+                decryptFile()
+                    .then((res) => {if (res === "success") showAlert("success", "decrypt success")})
+                    .finally(() => disabled = false)
+                return
+            default:
+                hashFile(opt)
+                    .then()
+                    .finally(() => disabled = false)
+                return
+        }
+    }
+
     async function encryptFile() {
         try {
             if (secretKey.length === 0) {
                 throw new Error("secret key is empty");
             }
 
-            const pathName = await app.OpenFileDialog();
-            if (pathName.length === 0) return;
-
-            const savePath = await app.OpenDirectoryDialog();
-            if (savePath.length === 0) {
-                showAlert("danger", "please select save folder");
-                return;
-            }
-
             loading = true;
-            await enc.EncryptFile(pathName, savePath, secretKey);
+            await enc.EncryptFile(inputFile, outputPath, outputName, secretKey);
             return "success";
         } catch (err) {
             showAlert("danger", err.toString());
@@ -40,17 +60,8 @@
                 throw new Error("secret key is empty");
             }
 
-            const pathName = await app.OpenFileDialog();
-            if (pathName.length === 0) return;
-
-            const savePath = await app.OpenDirectoryDialog();
-            if (savePath.length === 0) {
-                showAlert("danger", "please select save folder");
-                return;
-            }
-
             loading = true;
-            await enc.DecryptFile(pathName, savePath, secretKey);
+            await enc.DecryptFile(inputFile, outputPath, outputName, secretKey);
             return "success";
         } catch (err) {
             showAlert("danger", err.toString());
@@ -61,19 +72,16 @@
 
     async function hashFile(op) {
         try {
-            const pathName = await app.OpenFileDialog();
-            if (pathName.length === 0) return;
-
             loading = true;
             switch (op) {
                 case "md5":
-                    outputText = await enc.Md5File(pathName);
+                    outputText = await enc.Md5File(inputFile);
                     break;
                 case "sha1":
-                    outputText = await enc.Sha1File(pathName);
+                    outputText = await enc.Sha1File(inputFile);
                     break;
                 case "sha256":
-                    outputText = await enc.Sha256File(pathName);
+                    outputText = await enc.Sha256File(inputFile);
                     break;
                 default:
                     throw new Error("unknown op");
@@ -89,6 +97,8 @@
     }
 
     async function openFile() {
+        closeAlert();
+
         try {
             disabled = true;
 
@@ -113,32 +123,19 @@
     }
 
     async function openFolder() {
+        try {
+            disabled = true;
 
-    }
+            const path = await app.OpenDirectoryDialog();
+            if (path.length === 0) return;
 
-    function selectFile() {
-        closeAlert();
-        openFile()
+            outputPath = path;
 
-        // disabled = true;
-        //
-        // switch (opt) {
-        //     case "encrypt":
-        //         encryptFile()
-        //             .then((res) => {if (res === "success") showAlert("success", "encrypt success")})
-        //             .finally(() => disabled = false)
-        //         return
-        //     case "decrypt":
-        //         decryptFile()
-        //             .then((res) => {if (res === "success") showAlert("success", "decrypt success")})
-        //             .finally(() => disabled = false)
-        //         return
-        //     default:
-        //         hashFile(opt)
-        //             .then()
-        //             .finally(() => disabled = false)
-        //         return
-        // }
+        } catch (err) {
+            showAlert("danger", err.toString());
+        } finally {
+            disabled = false;
+        }
     }
 
     function toggleSecret(e) {
@@ -147,11 +144,13 @@
         outputLen = 0;
 
         if (["encrypt", "decrypt"].indexOf(e.target.value) >= 0) {
-            if (e.target.value.length > 0) {
+            if (inputFile.length > 0) {
                 if (e.target.value === "encrypt") {
                     enc.DefaultEncryptFilePath(inputFile)
                         .then(([path, name]) => {
-                            outputPath = path;
+                            if (outputPath.length === 0) {
+                                outputPath = path;
+                            }
                             outputName = name;
                         })
                         .catch((err) => {
@@ -160,7 +159,9 @@
                 } else if (e.target.value === "decrypt") {
                     enc.DefaultDecryptFilePath(inputFile)
                         .then(([path, name]) => {
-                            outputPath = path;
+                            if (outputPath.length === 0) {
+                                outputPath = path;
+                            }
                             outputName = name;
                         })
                         .catch((err) => {
@@ -242,24 +243,24 @@
     {#if showSecret}
         <div class="mb-3">
             <label for="secretKey" class="form-label">密钥</label>
-            <input bind:value={secretKey} class="form-control" id="secretKey" />
+            <input bind:value={secretKey} class:disabled={disabled} class="form-control" id="secretKey" />
         </div>
     {/if}
 
     <div class="mt-3 input-group">
         <button
-                on:click={selectFile}
-                class:disabled={disabled}
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
+            on:click={openFile}
+            class:disabled={disabled}
+            type="button"
+            class="btn btn-outline-secondary btn-sm"
         >
-            {#if loading}
+        {#if loading}
         <span
-                class="spinner-border spinner-border-sm"
-                role="status"
-                aria-hidden="true"
+            class="spinner-border spinner-border-sm"
+            role="status"
+            aria-hidden="true"
         />
-            {/if}
+        {/if}
             选择文件
         </button>
         <input type="text" bind:value={inputFile} disabled="true"  class="form-control">
@@ -268,18 +269,18 @@
     {#if !showOutput}
     <div class="mt-3 input-group">
         <button
-                on:click={selectFile}
-                class:disabled={disabled}
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
+            on:click={openFolder}
+            class:disabled={disabled}
+            type="button"
+            class="btn btn-outline-secondary btn-sm"
         >
-            {#if loading}
+        {#if loading}
         <span
-                class="spinner-border spinner-border-sm"
-                role="status"
-                aria-hidden="true"
+            class="spinner-border spinner-border-sm"
+            role="status"
+            aria-hidden="true"
         />
-            {/if}
+        {/if}
             选择保存目录
         </button>
         <input type="text" bind:value={outputPath} disabled="true"  class="form-control">
@@ -288,15 +289,31 @@
     </div>
     {/if}
 
+    <button
+        on:click={transform}
+        class:disabled={!(!disabled && inputFile.length > 0)}
+        type="button"
+        class="btn btn-outline-primary btn-sm mt-3"
+    >
+        {#if loading}
+        <span
+            class="spinner-border spinner-border-sm"
+            role="status"
+            aria-hidden="true"
+        />
+        {/if}
+        转换
+    </button>
+
     {#if showOutput}
     <div class="mt-3">
         <label for="outputText" class="form-label">输出文本</label>
         <textarea
-                bind:value={outputText}
-                class="form-control"
-                id="outputText"
-                rows="3"
-                aria-describedby="outputHelp"
+            bind:value={outputText}
+            class="form-control"
+            id="outputText"
+            rows="3"
+            aria-describedby="outputHelp"
         />
         {#if outputLen > 0}
             <div id="outputHelp" class="form-text">
