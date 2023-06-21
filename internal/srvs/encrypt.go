@@ -17,11 +17,19 @@ import (
 type Encrypt struct{}
 
 func (a *Encrypt) OpenSSLAesEnc(in, secret string) (string, error) {
-	return errx.LogStr(cryptz.EncryptToBase64String(in, secret))
+	b, err := cryptz.Encrypt(in, secret)
+	if err != nil {
+		return "", errx.Log(err)
+	}
+	return strz.UnsafeString(b), nil
 }
 
 func (a *Encrypt) OpenSSLAesDec(in, secret string) (string, error) {
-	return errx.LogStr(cryptz.DecryptBase64ToString(in, secret))
+	b, err := cryptz.Decrypt(in, secret)
+	if err != nil {
+		return "", errx.Log(err)
+	}
+	return strz.UnsafeString(b), nil
 }
 
 func (a *Encrypt) Md5(in string) string {

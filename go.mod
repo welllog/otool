@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/wailsapp/wails/v2 v2.3.1
-	github.com/welllog/golib v0.0.1
+	github.com/welllog/golib v0.0.2
 	github.com/welllog/olog v0.1.1
 )
 
