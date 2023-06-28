@@ -80,8 +80,17 @@
                 case "sha1":
                     outputText = await enc.Sha1File(inputFile);
                     break;
+                case "sha224":
+                    outputText = await enc.Sha224File(inputFile);
+                    break;
                 case "sha256":
                     outputText = await enc.Sha256File(inputFile);
+                    break;
+                case "sha384":
+                    outputText = await enc.Sha384File(inputFile);
+                    break;
+                case "sha512":
+                    outputText = await enc.Sha512File(inputFile);
                     break;
                 default:
                     throw new Error("unknown op");
@@ -192,8 +201,20 @@
             value: "sha1",
         },
         {
+            name: "sha224",
+            value: "sha224",
+        },
+        {
             name: "sha256",
             value: "sha256",
+        },
+        {
+            name: "sha384",
+            value: "sha384",
+        },
+        {
+            name: "sha512",
+            value: "sha512",
         }
     ]
 

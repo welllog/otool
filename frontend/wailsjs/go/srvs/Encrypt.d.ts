@@ -17,6 +17,8 @@ export function HexDec(arg1:string):Promise<string>;
 
 export function HexEnc(arg1:string):Promise<string>;
 
+export function Hmac(arg1:string,arg2:string,arg3:string):Promise<string>;
+
 export function Md5(arg1:string):Promise<string>;
 
 export function Md5File(arg1:string):Promise<string>;
@@ -33,9 +35,25 @@ export function Sha1(arg1:string):Promise<string>;
 
 export function Sha1File(arg1:string):Promise<string>;
 
+export function Sha224(arg1:string):Promise<string>;
+
+export function Sha224File(arg1:string):Promise<string>;
+
 export function Sha256(arg1:string):Promise<string>;
 
 export function Sha256File(arg1:string):Promise<string>;
+
+export function Sha384(arg1:string):Promise<string>;
+
+export function Sha384File(arg1:string):Promise<string>;
+
+export function Sha512(arg1:string):Promise<string>;
+
+export function Sha512File(arg1:string):Promise<string>;
+
+export function Sha512_224(arg1:string):Promise<string>;
+
+export function Sha512_256(arg1:string):Promise<string>;
 
 export function UrlDec(arg1:string):Promise<string>;
 

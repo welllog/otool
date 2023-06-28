@@ -34,6 +34,10 @@ export function HexEnc(arg1) {
   return window['go']['srvs']['Encrypt']['HexEnc'](arg1);
 }
 
+export function Hmac(arg1, arg2, arg3) {
+  return window['go']['srvs']['Encrypt']['Hmac'](arg1, arg2, arg3);
+}
+
 export function Md5(arg1) {
   return window['go']['srvs']['Encrypt']['Md5'](arg1);
 }
@@ -66,12 +70,44 @@ export function Sha1File(arg1) {
   return window['go']['srvs']['Encrypt']['Sha1File'](arg1);
 }
 
+export function Sha224(arg1) {
+  return window['go']['srvs']['Encrypt']['Sha224'](arg1);
+}
+
+export function Sha224File(arg1) {
+  return window['go']['srvs']['Encrypt']['Sha224File'](arg1);
+}
+
 export function Sha256(arg1) {
   return window['go']['srvs']['Encrypt']['Sha256'](arg1);
 }
 
 export function Sha256File(arg1) {
   return window['go']['srvs']['Encrypt']['Sha256File'](arg1);
+}
+
+export function Sha384(arg1) {
+  return window['go']['srvs']['Encrypt']['Sha384'](arg1);
+}
+
+export function Sha384File(arg1) {
+  return window['go']['srvs']['Encrypt']['Sha384File'](arg1);
+}
+
+export function Sha512(arg1) {
+  return window['go']['srvs']['Encrypt']['Sha512'](arg1);
+}
+
+export function Sha512File(arg1) {
+  return window['go']['srvs']['Encrypt']['Sha512File'](arg1);
+}
+
+export function Sha512_224(arg1) {
+  return window['go']['srvs']['Encrypt']['Sha512_224'](arg1);
+}
+
+export function Sha512_256(arg1) {
+  return window['go']['srvs']['Encrypt']['Sha512_256'](arg1);
 }
 
 export function UrlDec(arg1) {
