@@ -3,23 +3,27 @@ package main
 import (
 	"embed"
 
+	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
+	"github.com/welllog/otool/internal"
+	"github.com/welllog/otool/internal/log"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
-const version = "v0.0.1"
+const version = "v0.0.2"
 
 //go:embed all:frontend/build
 var assets embed.FS
 
 func main() {
+	customLogger := log.New()
 	// Create an instance of the app structure
-	app := NewApp()
+	app := internal.NewApp()
 
 	// Create application with options
 	err := wails.Run(&options.App{
@@ -33,10 +37,12 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		Logger:           app.logger,
-		OnStartup:        app.startup,
+		LogLevel:         logger.DEBUG,
+		Logger:           customLogger.InsideLogger(),
+		OnStartup:        app.Startup,
 		Bind: []interface{}{
 			app,
+			app.EncryptSrv,
 		},
 		Windows: &windows.Options{
 			WebviewIsTransparent: false, // 网页透明
@@ -47,7 +53,7 @@ func main() {
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  true,
 			About: &mac.AboutInfo{
-				Title:   "oai version",
+				Title:   "otool version",
 				Message: version,
 			},
 		},
