@@ -5,6 +5,7 @@
     { name: "文本编解码", url: "/edtext", selected: false },
     { name: "文件编解码", url: "/edfile", selected: false },
     { name: "进制转换", url: "/conversion", selected: false },
+    { name: "图片转换", url: "/imagine", selected: false },
   ];
 
   onMount(() => {
