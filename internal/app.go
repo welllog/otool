@@ -11,12 +11,14 @@ import (
 type App struct {
 	ctx        context.Context
 	EncryptSrv *srvs.Encrypt
+	ImageSrv   *srvs.Image
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
 		EncryptSrv: &srvs.Encrypt{},
+		ImageSrv:   &srvs.Image{},
 	}
 }
 
@@ -24,6 +26,7 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	a.ImageSrv.Ctx = ctx
 }
 
 func (a *App) OpenFileDialog() (string, error) {

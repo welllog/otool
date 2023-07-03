@@ -43,6 +43,7 @@ func main() {
 		Bind: []interface{}{
 			app,
 			app.EncryptSrv,
+			app.ImageSrv,
 		},
 		Windows: &windows.Options{
 			WebviewIsTransparent: false, // 网页透明
