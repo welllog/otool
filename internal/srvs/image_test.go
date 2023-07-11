@@ -45,6 +45,11 @@ func TestImagine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	f, err := imaging.FormatFromFilename("/Users/chentairen/Desktop/54604325_p0.webp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(f.String())
 	//imaging.Resize()
 	//imaging.Fill()
 	//imaging.Fit()

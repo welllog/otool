@@ -1,4 +1,5 @@
 build/bin
+build/*/icon.ico
 node_modules
 frontend/dist
 .idea
