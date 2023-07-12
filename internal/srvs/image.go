@@ -92,10 +92,13 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 	maxHeight := 320
 	width := img.Bounds().Dx()
 	height := img.Bounds().Dy()
-	if width > maxWidth || height > maxHeight { // 原尺寸小于指定参数，返回原图
-		// 按最大宽高裁剪
-		img = imaging.Fit(img, maxWidth, maxHeight, imaging.MitchellNetravali)
-	}
+	// img = imaging.Fit(img, maxWidth, maxHeight, imaging.MitchellNetravali)
+	img = imaging.Fill(img, maxWidth, maxHeight, imaging.Center, imaging.MitchellNetravali)
+
+	// if width > maxWidth || height > maxHeight { // 原尺寸小于指定参数，返回原图
+	// 	// 按最大宽高裁剪
+	// 	img = imaging.Fit(img, maxWidth, maxHeight, imaging.MitchellNetravali)
+	// }
 
 	olog.Debugf("resize width: %d, height: %d", img.Bounds().Dx(), img.Bounds().Dy())
 
@@ -137,9 +140,9 @@ func formatFromFilename(filename string) (string, error) {
 }
 
 func cropGif(g gif.GIF, op, width, height, percent int) {
-	//for _, v := g.Image {
+	// for _, v := g.Image {
 	//
-	//}
+	// }
 }
 
 func crop(img image.Image, op, width, height, percent int) image.Image {
