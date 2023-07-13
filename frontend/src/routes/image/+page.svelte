@@ -188,9 +188,9 @@
         </div>
     </div>
 
-    <div class="col-md-auto mt-2 input-group">
+    <div class="col-md-auto mt-2 input-group input-group-sm">
         <span class="input-group-text">缩略方式</span>
-        <select bind:value={op} id="op" class="form-select form-select-sm">
+        <select bind:value={op} id="op" class="form-select">
             {#each ops as d}
                 <option value={d.value}>{d.name}</option>
             {/each}
@@ -198,7 +198,7 @@
     </div>
 
     {#if op > 0 && op < 7}
-    <div class="input-group mt-2">
+    <div class="input-group mt-2 input-group-sm">
         {#if op < 5}
         <span class="input-group-text">宽</span>
         <input bind:value={width} type="number" class="form-control">
@@ -211,16 +211,16 @@
     {/if}
 
     {#if op === 7}
-    <div class="input-group mt-2">
+    <div class="input-group mt-2 input-group-sm">
         <span class="input-group-text">缩放百分比</span>
         <input bind:value={percent} type="number" class="form-control">
         <span class="input-group-text">%</span>
     </div>
     {/if}
 
-    <div class="col-md-auto mt-2 input-group">
+    <div class="col-md-auto mt-2 input-group input-group-sm">
         <span class="input-group-text">图片保存格式</span>
-        <select bind:value={encoder} on:change={(e) => {changeEncoderOption(e.target.value)}} id="encoder" class="form-select form-select-sm">
+        <select bind:value={encoder} on:change={(e) => {changeEncoderOption(e.target.value)}} id="encoder" class="form-select">
             {#each encoders as e}
                 <option value={e}>{e}</option>
             {/each}
@@ -228,12 +228,20 @@
     </div>
 
     {#if ['jpg', 'png', 'gif'].indexOf(encoder) >= 0 }
-    <div class="input-group mt-2">
-        <span class="input-group-text">{encoderOptionTitle}</span>
         {#if ['jpg', 'gif'].indexOf(encoder) >= 0 }
-        <input bind:value={encoderOption} type="number" max="{encoderOptionMax}" min="{encoderOptionMin}" class="form-control">
+        <div class="row mt-2">
+            <label for="optionRange" class="col-form-label col-auto">{encoderOptionTitle}</label>
+            <div class="col-auto">
+                <input bind:value={encoderOption} type="range" class="form-range form-range-sm" min="{encoderOptionMin}" max="{encoderOptionMax}" id="optionRange">
+            </div>
+            <div class="col-auto">
+                <input bind:value={encoderOption} type="number" max="{encoderOptionMax}" min="{encoderOptionMin}" step="1" class="form-control form-control-sm">
+            </div>
+        </div>
         {:else if encoder === 'png'}
-            &nbsp;&nbsp;
+            <div class="input-group mt-2 input-group-sm">
+            <span class="input-group-text">{encoderOptionTitle}</span>
+            &nbsp;&nbsp;&nbsp;&nbsp;
             {#each pngCompress as cp}
                 <div class="form-check form-check-inline">
                     <input
@@ -247,11 +255,11 @@
                     <label class="form-check-label" for={cp.value}>{cp.name}</label>
                 </div>
             {/each}
+            </div>
         {/if}
-    </div>
     {/if}
 
-    <div class="mt-2 input-group">
+    <div class="mt-2 input-group input-group-sm">
         <button
             on:click={openFolder}
             class:disabled={disabled}
@@ -269,7 +277,7 @@
         </button>
         <input type="text" bind:value={savePath} disabled="true"  class="form-control">
     </div>
-    <div class="mt-2 input-group">
+    <div class="mt-2 input-group input-group-sm">
         <span class="input-group-text">保存文件名</span>
         <textarea bind:value={saveName} class:disabled={disabled}  class="form-control"></textarea>
     </div>
