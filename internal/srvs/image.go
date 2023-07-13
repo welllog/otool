@@ -23,31 +23,34 @@ import (
 )
 
 type ImageInfo struct {
-	Name        string
-	Format      string
-	Width       int
-	Height      int
-	Size        string
-	ThumbWidth  int
-	ThumbHeight int
-	Thumbnail   string
+	Name         string
+	Format       string
+	Width        int
+	Height       int
+	Size         string
+	ThumbWidth   int
+	ThumbHeight  int
+	Thumbnail    string
+	Path         string
+	NoSuffixName string
 }
 
 const (
 	Original    = iota // 原图尺寸
-	FixedWH            // 固定宽高
 	FixedWidth         // 固定宽度
-	FixedHeight        // 固定高度
-	Percentage         // 百分比
 	MaxWidth           // 最大宽度
-	MaxHeight          // 最大高度
+	FixedWH            // 固定宽高
 	MaxWH              // 最大宽高
+	FixedHeight        // 固定高度
+	MaxHeight          // 最大高度
+	Percentage         // 百分比
 )
 
 type Image struct {
-	Ctx    context.Context
-	cache  image.Image
-	format string
+	Ctx      context.Context
+	cache    image.Image
+	format   string
+	pathName string
 }
 
 func (i *Image) OpenFileDialog() (string, error) {
@@ -87,36 +90,56 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 	}
 	i.cache = img
 	i.format = format
+	i.pathName = pathName
 
 	maxWidth := 400
 	maxHeight := 320
 	width := img.Bounds().Dx()
 	height := img.Bounds().Dy()
-	// img = imaging.Fit(img, maxWidth, maxHeight, imaging.MitchellNetravali)
-	img = imaging.Fill(img, maxWidth, maxHeight, imaging.Center, imaging.MitchellNetravali)
 
-	// if width > maxWidth || height > maxHeight { // 原尺寸小于指定参数，返回原图
-	// 	// 按最大宽高裁剪
-	// 	img = imaging.Fit(img, maxWidth, maxHeight, imaging.MitchellNetravali)
-	// }
-
-	olog.Debugf("resize width: %d, height: %d", img.Bounds().Dx(), img.Bounds().Dy())
+	if width > maxWidth || height > maxHeight { // 原尺寸小于指定参数，返回原图
+		// 按最大宽高裁剪
+		img = imaging.Fit(img, maxWidth, maxHeight, imaging.MitchellNetravali)
+	}
 
 	var buf bytes.Buffer
 	if err := png.Encode(base64.NewEncoder(base64.StdEncoding, &buf), img); err != nil {
 		return nil, errx.Log(err)
 	}
+	olog.Debugf("resize width: %d, height: %d, size: %s", img.Bounds().Dx(), img.Bounds().Dy(), prettySize(int64(buf.Len())))
 
 	return &ImageInfo{
-		Name:        filepath.Base(pathName),
-		Format:      format,
-		Width:       width,
-		Height:      height,
-		Size:        prettySize(info.Size()),
-		ThumbWidth:  img.Bounds().Dx(),
-		ThumbHeight: img.Bounds().Dy(),
-		Thumbnail:   buf.String(),
+		Name:         filepath.Base(pathName),
+		Format:       format,
+		Width:        width,
+		Height:       height,
+		Size:         prettySize(info.Size()),
+		ThumbWidth:   img.Bounds().Dx(),
+		ThumbHeight:  img.Bounds().Dy(),
+		Thumbnail:    buf.String(),
+		Path:         filepath.Dir(pathName),
+		NoSuffixName: filepath.Base(pathName[:len(pathName)-len(filepath.Ext(pathName))]),
 	}, nil
+}
+
+func (i *Image) Crop(op, width, height, percent, encodeOption int, savePath, saveName string) error {
+	savePathName := filepath.Join(savePath, saveName)
+
+	olog.Debugf("savePathName: %s, width: %d height: %d percent: %d encodeOption: %d",
+		savePathName, width, height, percent, encodeOption)
+
+	img := crop(i.cache, op, width, height, percent)
+	var opts []imaging.EncodeOption
+	format, _ := formatFromFilename(saveName)
+	switch format {
+	case imaging.JPEG.String():
+		opts = append(opts, imaging.JPEGQuality(encodeOption))
+	case imaging.PNG.String():
+		opts = append(opts, imaging.PNGCompressionLevel(png.CompressionLevel(encodeOption)))
+	case imaging.GIF.String():
+		opts = append(opts, imaging.GIFNumColors(encodeOption))
+	}
+	return imaging.Save(img, savePathName, opts...)
 }
 
 func decode(r io.Reader) (image.Image, error) {
@@ -130,7 +153,7 @@ func decodeGif(r io.Reader) (*gif.GIF, error) {
 func formatFromFilename(filename string) (string, error) {
 	ext := filepath.Ext(filename)
 	if ext == ".webp" {
-		return "webp", nil
+		return "WEBP", nil
 	}
 	f, err := imaging.FormatFromExtension(ext)
 	if err != nil {
