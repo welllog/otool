@@ -3,9 +3,10 @@ module github.com/welllog/otool
 go 1.18
 
 require (
+	github.com/chai2010/webp v1.1.1
 	github.com/disintegration/gift v1.2.1
 	github.com/disintegration/imaging v1.6.2
-	github.com/wailsapp/wails/v2 v2.5.1
+	github.com/wailsapp/wails/v2 v2.4.1
 	github.com/welllog/golib v0.0.4
 	github.com/welllog/olog v0.1.1
 	golang.org/x/image v0.8.0

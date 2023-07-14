@@ -10,6 +10,7 @@
     let width = 0, height = 0, percent = 100;
     let encoderOption = 0;
     let encoderOptionTitle = '', encoderOptionMax , encoderOptionMin;
+    let frameOp = 0;
 
     let op = 0;
     let ops = [
@@ -47,7 +48,7 @@
         }
     ]
     let encoder = 'png'
-    let encoders = ['jpg', 'png', 'gif', 'bmp', 'tiff'];
+    let encoders = ['jpg', 'png', 'gif', 'bmp', 'tiff', 'webp'];
 
     let pngCompress = [
         {
@@ -66,6 +67,41 @@
             name: '压缩优先',
             value: -3,
         }
+    ]
+
+    let frameOps = [
+        {
+            name: "不处理",
+            value: 0,
+        },
+        {
+            name: "抽取1/2",
+            value: 2,
+        },
+        {
+            name: "抽取1/3",
+            value: 3,
+        },
+        {
+            name: "抽取1/4",
+            value: 4,
+        },
+        {
+            name: "抽取1/5",
+            value: 5,
+        },
+        {
+            name: "抽取1/6",
+            value: 6,
+        },
+        {
+            name: "抽取1/7",
+            value: 7,
+        },
+        {
+            name: "抽取1/8",
+            value: 8,
+        },
     ]
 
     async function openFile() {
@@ -118,6 +154,8 @@
     }
 
     function transform() {
+        closeAlert()
+
         disabled = true;
         loading = true
         image.Crop(op, width, height, percent, parseInt(encoderOption, 10), savePath, saveName)
@@ -151,6 +189,11 @@
                 encoderOption = 0
                 encoderOptionTitle = '压缩等级'
                 break
+            case 'webp':
+                encoderOption = 90
+                encoderOptionTitle = '质量'
+                encoderOptionMax = 100
+                encoderOptionMin = 1
         }
     }
 
@@ -163,11 +206,11 @@
     <div class="mt-2">
         <button class="btn btn-outline-secondary" on:click={openFile} class:disabled={disabled}>
             {#if loading}
-            <span
-                class="spinner-border spinner-border-sm"
-                role="status"
-                aria-hidden="true"
-            />
+                <span
+                    class="spinner-border spinner-border-sm"
+                    role="status"
+                    aria-hidden="true"
+                />
             {/if}
             <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16">
                 <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
@@ -183,6 +226,7 @@
             <h5 class="card-title">{img.Name} {img.Size}</h5>
             <p class="card-text">
                 format: {img.Format}&nbsp;&nbsp; wh: {img.Width} * {img.Height}
+                {#if img.Format === 'GIF'}<br/> frames: {img.Frames}{/if}
 <!--                thumb size: {img.ThumbWidth} * {img.ThumbHeight} <br/>-->
             </p>
         </div>
@@ -198,24 +242,24 @@
     </div>
 
     {#if op > 0 && op < 7}
-    <div class="input-group mt-2 input-group-sm">
-        {#if op < 5}
-        <span class="input-group-text">宽</span>
-        <input bind:value={width} type="number" class="form-control">
-        {/if}
-        {#if op > 2}
-        <span class="input-group-text">高</span>
-        <input bind:value={height} type="number" class="form-control">
-        {/if}
-    </div>
+        <div class="input-group mt-2 input-group-sm">
+            {#if op < 5}
+            <span class="input-group-text">宽</span>
+            <input bind:value={width} type="number" class="form-control">
+            {/if}
+            {#if op > 2}
+            <span class="input-group-text">高</span>
+            <input bind:value={height} type="number" class="form-control">
+            {/if}
+        </div>
     {/if}
 
     {#if op === 7}
-    <div class="input-group mt-2 input-group-sm">
-        <span class="input-group-text">缩放百分比</span>
-        <input bind:value={percent} type="number" class="form-control">
-        <span class="input-group-text">%</span>
-    </div>
+        <div class="input-group mt-2 input-group-sm">
+            <span class="input-group-text">缩放百分比</span>
+            <input bind:value={percent} type="number" class="form-control">
+            <span class="input-group-text">%</span>
+        </div>
     {/if}
 
     <div class="col-md-auto mt-2 input-group input-group-sm">
@@ -227,36 +271,47 @@
         </select>
     </div>
 
-    {#if ['jpg', 'png', 'gif'].indexOf(encoder) >= 0 }
-        {#if ['jpg', 'gif'].indexOf(encoder) >= 0 }
-        <div class="row mt-2">
-            <label for="optionRange" class="col-form-label col-auto">{encoderOptionTitle}</label>
-            <div class="col-auto">
-                <input bind:value={encoderOption} type="range" class="form-range form-range-sm" min="{encoderOptionMin}" max="{encoderOptionMax}" id="optionRange">
+    {#if ['jpg', 'png', 'gif', 'webp'].indexOf(encoder) >= 0 }
+        {#if ['jpg', 'gif', 'webp'].indexOf(encoder) >= 0 }
+            <div class="row mt-2">
+                <label for="optionRange" class="col-form-label col-auto">{encoderOptionTitle}</label>
+                <div class="col-auto">
+                    <input bind:value={encoderOption} type="range" class="form-range form-range-sm" min="{encoderOptionMin}" max="{encoderOptionMax}" id="optionRange">
+                </div>
+                <div class="col-auto">
+                    <input bind:value={encoderOption} type="number" max="{encoderOptionMax}" min="{encoderOptionMin}" step="1" class="form-control form-control-sm">
+                </div>
             </div>
-            <div class="col-auto">
-                <input bind:value={encoderOption} type="number" max="{encoderOptionMax}" min="{encoderOptionMin}" step="1" class="form-control form-control-sm">
-            </div>
-        </div>
         {:else if encoder === 'png'}
             <div class="input-group mt-2 input-group-sm">
-            <span class="input-group-text">{encoderOptionTitle}</span>
-            &nbsp;&nbsp;&nbsp;&nbsp;
-            {#each pngCompress as cp}
-                <div class="form-check form-check-inline">
-                    <input
-                        bind:group={encoderOption}
-                        class="form-check-input"
-                        type="radio"
-                        name="opt"
-                        id={cp.value}
-                        value={cp.value}
-                    />
-                    <label class="form-check-label" for={cp.value}>{cp.name}</label>
-                </div>
-            {/each}
+                <span class="input-group-text">{encoderOptionTitle}</span>
+                &nbsp;&nbsp;&nbsp;&nbsp;
+                {#each pngCompress as cp}
+                    <div class="form-check form-check-inline">
+                        <input
+                            bind:group={encoderOption}
+                            class="form-check-input"
+                            type="radio"
+                            name="opt"
+                            id={cp.value}
+                            value={cp.value}
+                        />
+                        <label class="form-check-label" for={cp.value}>{cp.name}</label>
+                    </div>
+                {/each}
             </div>
         {/if}
+    {/if}
+
+    {#if img.Format === 'GIF' && img.Frames > 1 && encoder === 'gif'}
+        <div class="input-group mt-2 input-group-sm">
+            <span class="input-group-text">抽帧</span>
+            <select bind:value={frameOp} id="frameOp" class="form-select">
+                {#each frameOps as d}
+                    <option value={d.value}>{d.name}</option>
+                {/each}
+            </select>
+        </div>
     {/if}
 
     <div class="mt-2 input-group input-group-sm">
@@ -266,20 +321,13 @@
             type="button"
             class="btn btn-outline-secondary btn-sm"
         >
-        {#if loading}
-        <span
-            class="spinner-border spinner-border-sm"
-            role="status"
-            aria-hidden="true"
-        />
-        {/if}
             选择保存目录
         </button>
         <input type="text" bind:value={savePath} disabled="true"  class="form-control">
     </div>
     <div class="mt-2 input-group input-group-sm">
         <span class="input-group-text">保存文件名</span>
-        <textarea bind:value={saveName} class:disabled={disabled}  class="form-control"></textarea>
+        <input type="text" bind:value={saveName} class:disabled={disabled}  class="form-control">
     </div>
     {/if}
 
@@ -291,6 +339,13 @@
             class="btn btn-outline-primary btn-sm"
             class:disabled={!(!disabled && Object.keys(img).length > 0)}
         >
+        {#if loading}
+        <span
+            class="spinner-border spinner-border-sm text-primary"
+            role="status"
+            aria-hidden="true"
+        />
+        {/if}
         转换
         </button>
         <button
