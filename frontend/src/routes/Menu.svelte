@@ -6,6 +6,7 @@
     { name: "文件编解码", url: "/file", selected: false },
     { name: "进制转换", url: "/conversion", selected: false },
     { name: "图片转换", url: "/image", selected: false },
+    { name: "二维码工具", url: "/qrcode", selected: false },
   ];
 
   onMount(() => {

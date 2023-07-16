@@ -19,8 +19,9 @@ import (
 	"github.com/chai2010/webp"
 	"github.com/disintegration/gift"
 	"github.com/disintegration/imaging"
+	"github.com/skip2/go-qrcode"
+	dqr "github.com/tuotoo/qrcode"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
-	"github.com/welllog/golib/slicez"
 	"github.com/welllog/olog"
 	"github.com/welllog/otool/internal/errx"
 	_ "golang.org/x/image/bmp"
@@ -144,7 +145,7 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 	}, nil
 }
 
-func (i *Image) Crop(op, width, height, percent, encodeOption int, savePath, saveName string) error {
+func (i *Image) Crop(op, width, height, percent, encodeOption int, savePath, saveName string, webpLossLess bool) error {
 	savePathName := filepath.Join(savePath, saveName)
 
 	_, err := os.Stat(savePathName)
@@ -152,8 +153,8 @@ func (i *Image) Crop(op, width, height, percent, encodeOption int, savePath, sav
 		return errx.Logf("file already exists: %s", savePathName)
 	}
 
-	olog.Debugf("savePathName: %s, width: %d height: %d percent: %d encodeOption: %d",
-		savePathName, width, height, percent, encodeOption)
+	olog.Debugf("op: %d savePathName: %s, width: %d height: %d percent: %d encodeOption: %d webpLossLess: %v",
+		op, savePathName, width, height, percent, encodeOption, webpLossLess)
 
 	img := crop(i.cache, op, width, height, percent)
 	var opts []imaging.EncodeOption
@@ -166,14 +167,14 @@ func (i *Image) Crop(op, width, height, percent, encodeOption int, savePath, sav
 	case imaging.GIF.String():
 		opts = append(opts, imaging.GIFNumColors(encodeOption))
 	case "WEBP":
-		return webp.Save(savePathName, img, &webp.Options{Lossless: false, Quality: float32(encodeOption), Exact: false})
+		return webp.Save(savePathName, img, &webp.Options{Lossless: webpLossLess, Quality: float32(encodeOption), Exact: false})
 	}
 	return imaging.Save(img, savePathName, opts...)
 }
 
 func (i *Image) CropGif(op, width, height, percent, encodeOption, drop int, savePath, saveName string, drawOnBefore bool) error {
 	if len(i.gifCache.Image) == 1 {
-		return i.Crop(op, width, height, percent, encodeOption, savePath, saveName)
+		return i.Crop(op, width, height, percent, encodeOption, savePath, saveName, false)
 	}
 
 	savePathName := filepath.Join(savePath, saveName)
@@ -183,10 +184,10 @@ func (i *Image) CropGif(op, width, height, percent, encodeOption, drop int, save
 		return errx.Logf("file already exists: %s", savePathName)
 	}
 
-	olog.Debugf("savePathName: %s, width: %d height: %d percent: %d encodeOption: %d drop: %d, drawOnBefore: %v",
-		savePathName, width, height, percent, encodeOption, drop, drawOnBefore)
+	olog.Debugf("op: %d savePathName: %s, width: %d height: %d percent: %d encodeOption: %d drop: %d, drawOnBefore: %v",
+		op, savePathName, width, height, percent, encodeOption, drop, drawOnBefore)
 
-	cropGif(i.gifCache, op, width, height, percent, drop, drawOnBefore)
+	img := cropGif(i.gifCache, op, width, height, percent, drop, drawOnBefore)
 
 	of, err := os.Create(savePathName)
 	if err != nil {
@@ -195,15 +196,51 @@ func (i *Image) CropGif(op, width, height, percent, encodeOption, drop int, save
 
 	defer of.Close()
 
-	return gif.EncodeAll(of, i.gifCache)
+	return errx.Log(gif.EncodeAll(of, img))
+}
+
+func (i *Image) Clean() {
+	olog.Debugf("clean: %s", i.pathName)
+
+	i.cache = nil
+	i.gifCache = nil
+	i.format = ""
+	i.pathName = ""
+}
+
+func (i *Image) QrEncode(text, savePath, saveName string, recover, size int) error {
+	savePathName := filepath.Join(savePath, saveName)
+
+	_, err := os.Stat(savePathName)
+	if err == nil || errors.Is(err, fs.ErrExist) {
+		return errx.Logf("file already exists: %s", savePathName)
+	}
+
+	b, err := qrcode.Encode(text, qrcode.RecoveryLevel(recover), size)
+	if err != nil {
+		return errx.Log(err)
+	}
+
+	return errx.Log(os.WriteFile(savePathName, b, 0644))
+}
+
+func (i *Image) QrDecode(pathName string) (string, error) {
+	f, err := os.Open(pathName)
+	if err != nil {
+		return "", errx.Log(err)
+	}
+	defer f.Close()
+
+	m, err := dqr.Decode(f)
+	if err != nil {
+		return "", errx.Log(err)
+	}
+
+	return m.Content, nil
 }
 
 func decode(r io.Reader) (image.Image, error) {
 	return imaging.Decode(r, imaging.AutoOrientation(true))
-}
-
-func decodeGif(r io.Reader) (*gif.GIF, error) {
-	return gif.DecodeAll(r)
 }
 
 func formatFromFilename(filename string) (string, error) {
@@ -219,11 +256,10 @@ func formatFromFilename(filename string) (string, error) {
 }
 
 func cropGif(g *gif.GIF, op, width, height, percent, drop int, drawOnBefore bool) *gif.GIF {
-	g = &gif.GIF{
-		Image:           slicez.Copy(g.Image, 0, -1),
-		Delay:           slicez.Copy(g.Delay, 0, -1),
-		LoopCount:       g.LoopCount,
-		Disposal:        slicez.Copy(g.Disposal, 0, -1),
+	c := &gif.GIF{
+		Image:           make([]*image.Paletted, 0, len(g.Image)),
+		Delay:           make([]int, 0, len(g.Delay)),
+		Disposal:        make([]byte, 0, len(g.Disposal)),
 		Config:          g.Config,
 		BackgroundIndex: g.BackgroundIndex,
 	}
@@ -251,45 +287,48 @@ func cropGif(g *gif.GIF, op, width, height, percent, drop int, drawOnBefore bool
 		}
 	case MaxWH:
 		if g.Config.Width > width || g.Config.Height > height {
-			filters = append(filters, gift.ResizeToFill(width, height, gift.NearestNeighborResampling, gift.CenterAnchor))
+			filters = append(filters, gift.ResizeToFit(width, height, gift.NearestNeighborResampling))
 		}
 	}
 
 	filter := gift.New(filters...)
+	delay := 0
 
+	firstFrame := g.Image[0]
+	c.Config.Width = filter.Bounds(firstFrame.Bounds()).Max.X
+	c.Config.Height = filter.Bounds(firstFrame.Bounds()).Max.Y
 	if drawOnBefore {
-		tmp := image.NewNRGBA(g.Image[0].Bounds())
+		tmp := image.NewNRGBA(firstFrame.Bounds())
 		for i := range g.Image {
 			// draw current frame over previous:
 			gift.New().DrawAt(tmp, g.Image[i], g.Image[i].Bounds().Min, gift.OverOperator)
 			dst := image.NewPaletted(filter.Bounds(tmp.Bounds()), g.Image[i].Palette)
 			filter.Draw(dst, tmp)
-			if i == 0 {
-				g.Config.Width = dst.Bounds().Dx()
-				g.Config.Height = dst.Bounds().Dy()
-			}
-
+			delay = delay + g.Delay[i]
 			if drop == 0 || (i+1)%drop != 0 {
-				g.Image[i] = dst
+				c.Image = append(c.Image, dst)
+				c.Delay = append(c.Delay, delay)
+				c.Disposal = append(c.Disposal, g.Disposal[i])
+				delay = 0
 			}
 		}
 	} else {
 		for i := range g.Image {
+			delay = delay + g.Delay[i]
 			if drop > 0 && (i+1)%drop == 0 {
 				continue
 			}
-			tmp := image.NewNRGBA(g.Image[i].Bounds())
+			tmp := image.NewNRGBA(firstFrame.Bounds())
 			gift.New().DrawAt(tmp, g.Image[i], g.Image[i].Bounds().Min, gift.CopyOperator)
 			dst := image.NewPaletted(filter.Bounds(tmp.Bounds()), g.Image[i].Palette)
 			filter.Draw(dst, tmp)
-			g.Image[i] = dst
-			if i == 0 {
-				g.Config.Width = dst.Bounds().Dx()
-				g.Config.Height = dst.Bounds().Dy()
-			}
+			c.Image = append(c.Image, dst)
+			c.Delay = append(c.Delay, delay)
+			c.Disposal = append(c.Disposal, g.Disposal[i])
+			delay = 0
 		}
 	}
-	return g
+	return c
 }
 
 func crop(img image.Image, op, width, height, percent int) image.Image {
