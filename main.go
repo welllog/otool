@@ -23,7 +23,7 @@ var assets embed.FS
 func main() {
 	customLogger := log.New()
 	// Create an instance of the app structure
-	app := internal.NewApp()
+	app := internal.NewApp(version)
 
 	// Create application with options
 	err := wails.Run(&options.App{

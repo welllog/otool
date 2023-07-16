@@ -5,7 +5,7 @@
 
 </script>
 
-<div class="main d-flex flex-row">
+<div class="main d-flex">
     <Menu />
     <div class="flex-fill overflow-scroll">
         <slot></slot>

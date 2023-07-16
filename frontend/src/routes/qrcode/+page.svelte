@@ -168,12 +168,6 @@
                 />
             {/if}
             生成二维码
-        </button
-        >
-        <button
-            type="button"
-            disabled={disabled}
-            class="btn btn-outline-secondary btn-sm mb-3">清空</button
-        >
+        </button>
     </div>
 </div>

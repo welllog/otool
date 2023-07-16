@@ -12,3 +12,5 @@ export function OpenURL(arg1:string):Promise<void>;
 export function RandId():Promise<string>;
 
 export function SaveFileDialog():Promise<string>;
+
+export function Version():Promise<string>;

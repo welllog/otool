@@ -13,14 +13,16 @@ import (
 
 // App struct
 type App struct {
+	version    string
 	ctx        context.Context
 	EncryptSrv *srvs.Encrypt
 	ImageSrv   *srvs.Image
 }
 
 // NewApp creates a new App application struct
-func NewApp() *App {
+func NewApp(version string) *App {
 	return &App{
+		version:    version,
 		EncryptSrv: &srvs.Encrypt{},
 		ImageSrv:   &srvs.Image{},
 	}
@@ -73,6 +75,10 @@ func (a *App) RandId() string {
 
 func (a *App) OpenURL(url string) {
 	runtime.BrowserOpenURL(a.ctx, url)
+}
+
+func (a *App) Version() string {
+	return a.version
 }
 
 func (a *App) warnAlert(msg string) {

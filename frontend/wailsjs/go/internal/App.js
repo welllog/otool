@@ -25,3 +25,7 @@ export function RandId() {
 export function SaveFileDialog() {
   return window['go']['internal']['App']['SaveFileDialog']();
 }
+
+export function Version() {
+  return window['go']['internal']['App']['Version']();
+}
