@@ -305,8 +305,10 @@
             选择保存目录
         </button>
         <input type="text" bind:value={outputPath} disabled="true"  class="form-control">
+    </div>
+    <div class="mt-3 input-group">
         <span class="input-group-text">保存文件名</span>
-        <input type="text" bind:value={outputName} class:disabled={disabled}  class="form-control">
+        <textarea bind:value={outputName} class:disabled={disabled}  class="form-control"></textarea>
     </div>
     {/if}
 

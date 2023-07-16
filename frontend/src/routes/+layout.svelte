@@ -5,9 +5,9 @@
 
 </script>
 
-<div class="d-flex main">
+<div class="main d-flex flex-row">
     <Menu />
-    <div class="flex-grow-1">
+    <div class="flex-fill overflow-scroll">
         <slot></slot>
     </div>
 </div>
@@ -15,7 +15,7 @@
 <style>
     .main {
         height: 100vh;
-        /*max-height: 100vh;*/
+        width: 100vw;
         overflow-x: auto;
         overflow-y: hidden;
     }

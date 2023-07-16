@@ -2,8 +2,12 @@ package internal
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/welllog/golib/randz"
+	"github.com/welllog/otool/internal/errx"
 	"github.com/welllog/otool/internal/srvs"
 )
 
@@ -11,12 +15,14 @@ import (
 type App struct {
 	ctx        context.Context
 	EncryptSrv *srvs.Encrypt
+	ImageSrv   *srvs.Image
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
 	return &App{
 		EncryptSrv: &srvs.Encrypt{},
+		ImageSrv:   &srvs.Image{},
 	}
 }
 
@@ -24,6 +30,7 @@ func NewApp() *App {
 // so we can call the runtime methods
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	a.ImageSrv.Ctx = ctx
 }
 
 func (a *App) OpenFileDialog() (string, error) {
@@ -43,6 +50,29 @@ func (a *App) SaveFileDialog() (string, error) {
 		ShowHiddenFiles:      true,
 		CanCreateDirectories: true,
 	})
+}
+
+func (a *App) DefaultPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		_ = errx.Log(err)
+		return ""
+	}
+	desk := filepath.Join(home, "Desktop")
+	f, err := os.Stat(desk)
+	if err != nil || !f.IsDir() {
+		return home
+	}
+
+	return desk
+}
+
+func (a *App) RandId() string {
+	return randz.Id().Base32()
+}
+
+func (a *App) OpenURL(url string) {
+	runtime.BrowserOpenURL(a.ctx, url)
 }
 
 func (a *App) warnAlert(msg string) {

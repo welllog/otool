@@ -27,7 +27,6 @@ func main() {
 
 	// Create application with options
 	err := wails.Run(&options.App{
-		Title:             "otool",
 		Width:             1024,
 		Height:            768,
 		Frameless:         false, // 无边框应用
@@ -43,6 +42,7 @@ func main() {
 		Bind: []interface{}{
 			app,
 			app.EncryptSrv,
+			app.ImageSrv,
 		},
 		Windows: &windows.Options{
 			WebviewIsTransparent: false, // 网页透明

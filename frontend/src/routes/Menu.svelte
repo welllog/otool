@@ -2,9 +2,11 @@
   import { onMount } from "svelte";
 
   let menus = [
-    { name: "文本编解码", url: "/edtext", selected: false },
-    { name: "文件编解码", url: "/edfile", selected: false },
+    { name: "文本编解码", url: "/text", selected: false },
+    { name: "文件编解码", url: "/file", selected: false },
     { name: "进制转换", url: "/conversion", selected: false },
+    { name: "图片转换", url: "/image", selected: false },
+    { name: "二维码工具", url: "/qrcode", selected: false },
   ];
 
   onMount(() => {
@@ -44,18 +46,12 @@
   }
 </script>
 
-<div
-  class="d-flex flex-column flex-shrink-0 p-3 text-bg-dark"
-  style="width: 280px;"
->
+<div class="flex-shrink-0 text-bg-dark p-2 overflow-scroll w-25" style="max-width: 220px;">
   <a
     href="/"
     on:click={selectedMenu}
-    class="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-white text-decoration-none"
+    class="d-flex justify-content-center text-white text-decoration-none"
   >
-    <svg class="bi pe-none me-2" width="40" height="32"
-      ><use xlink:href="#bootstrap" /></svg
-    >
     <span class="fs-4">otool</span>
   </a>
   <hr />
@@ -65,23 +61,13 @@
         <a
           href={menuItem.url}
           menu-id={i}
-          class="nav-link text-white"
+          class="nav-link text-white d-flex justify-content-center"
           class:active={menuItem.selected}
           on:click={selectedMenu}
         >
-          <svg class="bi pe-none me-2" width="16" height="16"
-            ><use xlink:href="#home" /></svg
-          >
           {menuItem.name}
         </a>
       </li>
     {/each}
   </ul>
 </div>
-
-<style>
-  .bi {
-    vertical-align: -0.125em;
-    fill: currentColor;
-  }
-</style>
