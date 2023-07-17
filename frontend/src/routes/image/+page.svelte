@@ -286,8 +286,8 @@
         </div>
     {/if}
 
-    <div class="mt-2">
-    保存格式：
+    <div class="mt-2 d-flex flex-wrap">
+        保存格式：&nbsp;
         {#each encoders as e}
             <div class="form-check form-check-inline">
                 <input
@@ -323,8 +323,8 @@
                 {/if}
             </div>
         {:else if encoder === 'png'}
-            <div class="mt-2">
-                {encoderOptionTitle}:
+            <div class="mt-2 d-flex flex-wrap">
+                {encoderOptionTitle}: &nbsp;
                 {#each pngCompress as cp}
                     <div class="form-check form-check-inline">
                         <input
