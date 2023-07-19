@@ -114,7 +114,7 @@
     </div>
 
     {#if text.length > 0 }
-        <div class="mt-3">
+        <div class="mt-3 d-flex flex-wrap">
             容错率：
             {#each recoverOptions as op}
                 <div class="form-check form-check-inline">
