@@ -13,7 +13,6 @@ otool 是一个文本、文件加解密，数字进制转换、图片转换、�
 ### 构建命令
 * windows amd64: `wails build -platform=windows/amd64`
 * windows arm64: `wails build -platform=windows/arm64`
-* mac: `wails build -platform=darwin`
 * mac intel chip: `wails build -platform=darwin/amd64`
 * mac M chip: `wails build -platform=darwin/arm64`
 * linux amd64: `wails build -platform=linux/amd64`
