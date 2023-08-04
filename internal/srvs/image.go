@@ -30,17 +30,34 @@ import (
 )
 
 type ImageInfo struct {
-	Name         string
-	Format       string
-	Width        int
-	Height       int
-	Size         string
-	Frames       int
-	ThumbWidth   int
-	ThumbHeight  int
-	Thumbnail    string
-	Path         string
-	NoSuffixName string
+	Name         string `json:"name"`
+	Format       string `json:"format"`
+	Width        int    `json:"width"`
+	Height       int    `json:"height"`
+	Size         string `json:"size"`
+	Frames       int    `json:"frames"`
+	ThumbWidth   int    `json:"thumbWidth"`
+	ThumbHeight  int    `json:"thumbHeight"`
+	Thumbnail    string `json:"thumbnail"`
+	Path         string `json:"path"`
+	NoSuffixName string `json:"noSuffixName"`
+}
+
+type ImageOptions struct {
+	Op                   int    `json:"op"`
+	SavePath             string `json:"savePath"`
+	SaveName             string `json:"saveName"`
+	Width                int    `json:"width"`
+	Height               int    `json:"height"`
+	Percent              int    `json:"percent"`
+	JpgQuality           int    `json:"jpgQuality"`
+	PngCompression       int    `json:"pngCompression"`
+	GifNumColors         int    `json:"gifNumColors"`
+	GifDropRate          int    `json:"gifDropRate"`
+	GifDrawOnBefore      bool   `json:"gifDrawOnBefore"`
+	WebpLossless         bool   `json:"webpLossless"`
+	WebpQuality          int    `json:"webpQuality"`
+	WebpRgbInTransparent bool   `json:"WebpRgbInTransparent"`
 }
 
 const (
@@ -145,58 +162,43 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 	}, nil
 }
 
-func (i *Image) Crop(op, width, height, percent, encodeOption int, savePath, saveName string, webpLossLess bool) error {
-	savePathName := filepath.Join(savePath, saveName)
+func (i *Image) CropAndSave(opts ImageOptions) error {
+	savePathName := filepath.Join(opts.SavePath, opts.SaveName)
 
 	_, err := os.Stat(savePathName)
 	if err == nil || errors.Is(err, fs.ErrExist) {
 		return errx.Logf("file already exists: %s", savePathName)
 	}
 
-	olog.Debugf("op: %d savePathName: %s, width: %d height: %d percent: %d encodeOption: %d webpLossLess: %v",
-		op, savePathName, width, height, percent, encodeOption, webpLossLess)
+	olog.Debugf("crop image options: %+v", &opts)
 
-	img := crop(i.cache, op, width, height, percent)
-	var opts []imaging.EncodeOption
-	format, _ := formatFromFilename(saveName)
+	format, _ := formatFromFilename(opts.SaveName)
+	if format == i.format && format == imaging.GIF.String() && len(i.gifCache.Image) > 1 {
+		img := cropGif(i.gifCache, &opts)
+
+		of, err := os.Create(savePathName)
+		if err != nil {
+			return errx.Log(err)
+		}
+
+		defer of.Close()
+
+		return errx.Log(gif.EncodeAll(of, img))
+	}
+
+	img := crop(i.cache, &opts)
+	var saveOpts []imaging.EncodeOption
 	switch format {
 	case imaging.JPEG.String():
-		opts = append(opts, imaging.JPEGQuality(encodeOption))
+		saveOpts = append(saveOpts, imaging.JPEGQuality(opts.JpgQuality))
 	case imaging.PNG.String():
-		opts = append(opts, imaging.PNGCompressionLevel(png.CompressionLevel(encodeOption)))
+		saveOpts = append(saveOpts, imaging.PNGCompressionLevel(png.CompressionLevel(opts.PngCompression)))
 	case imaging.GIF.String():
-		opts = append(opts, imaging.GIFNumColors(encodeOption))
+		saveOpts = append(saveOpts, imaging.GIFNumColors(opts.GifNumColors))
 	case "WEBP":
-		return webp.Save(savePathName, img, &webp.Options{Lossless: webpLossLess, Quality: float32(encodeOption), Exact: false})
+		return errx.Log(webp.Save(savePathName, img, &webp.Options{Lossless: opts.WebpLossless, Quality: float32(opts.WebpQuality), Exact: opts.WebpRgbInTransparent}))
 	}
-	return imaging.Save(img, savePathName, opts...)
-}
-
-func (i *Image) CropGif(op, width, height, percent, encodeOption, drop int, savePath, saveName string, drawOnBefore bool) error {
-	if len(i.gifCache.Image) == 1 {
-		return i.Crop(op, width, height, percent, encodeOption, savePath, saveName, false)
-	}
-
-	savePathName := filepath.Join(savePath, saveName)
-
-	_, err := os.Stat(savePathName)
-	if err == nil || errors.Is(err, fs.ErrExist) {
-		return errx.Logf("file already exists: %s", savePathName)
-	}
-
-	olog.Debugf("op: %d savePathName: %s, width: %d height: %d percent: %d encodeOption: %d drop: %d, drawOnBefore: %v",
-		op, savePathName, width, height, percent, encodeOption, drop, drawOnBefore)
-
-	img := cropGif(i.gifCache, op, width, height, percent, drop, drawOnBefore)
-
-	of, err := os.Create(savePathName)
-	if err != nil {
-		return errx.Log(err)
-	}
-
-	defer of.Close()
-
-	return errx.Log(gif.EncodeAll(of, img))
+	return errx.Log(imaging.Save(img, savePathName, saveOpts...))
 }
 
 func (i *Image) Clean() {
@@ -255,7 +257,7 @@ func formatFromFilename(filename string) (string, error) {
 	return f.String(), nil
 }
 
-func cropGif(g *gif.GIF, op, width, height, percent, drop int, drawOnBefore bool) *gif.GIF {
+func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 	c := &gif.GIF{
 		Image:           make([]*image.Paletted, 0, len(g.Image)),
 		Delay:           make([]int, 0, len(g.Delay)),
@@ -265,29 +267,29 @@ func cropGif(g *gif.GIF, op, width, height, percent, drop int, drawOnBefore bool
 	}
 
 	var filters []gift.Filter
-	switch op {
+	switch opts.Op {
 	case Original:
 	case FixedWH:
-		filters = append(filters, gift.ResizeToFill(width, height, gift.NearestNeighborResampling, gift.CenterAnchor))
+		filters = append(filters, gift.ResizeToFill(opts.Width, opts.Height, gift.NearestNeighborResampling, gift.CenterAnchor))
 	case FixedWidth:
-		filters = append(filters, gift.Resize(width, 0, gift.NearestNeighborResampling))
+		filters = append(filters, gift.Resize(opts.Width, 0, gift.NearestNeighborResampling))
 	case FixedHeight:
-		filters = append(filters, gift.Resize(0, height, gift.NearestNeighborResampling))
+		filters = append(filters, gift.Resize(0, opts.Height, gift.NearestNeighborResampling))
 	case Percentage:
-		w := math.Ceil(float64(g.Config.Width) * float64(percent) / 100)
-		h := math.Ceil(float64(g.Config.Height) * float64(percent) / 100)
+		w := math.Ceil(float64(g.Config.Width) * float64(opts.Percent) / 100)
+		h := math.Ceil(float64(g.Config.Height) * float64(opts.Percent) / 100)
 		filters = append(filters, gift.ResizeToFill(int(w), int(h), gift.NearestNeighborResampling, gift.CenterAnchor))
 	case MaxWidth:
-		if g.Config.Width > width {
-			filters = append(filters, gift.Resize(width, 0, gift.NearestNeighborResampling))
+		if g.Config.Width > opts.Width {
+			filters = append(filters, gift.Resize(opts.Width, 0, gift.NearestNeighborResampling))
 		}
 	case MaxHeight:
-		if g.Config.Height > height {
-			filters = append(filters, gift.Resize(0, height, gift.NearestNeighborResampling))
+		if g.Config.Height > opts.Height {
+			filters = append(filters, gift.Resize(0, opts.Height, gift.NearestNeighborResampling))
 		}
 	case MaxWH:
-		if g.Config.Width > width || g.Config.Height > height {
-			filters = append(filters, gift.ResizeToFit(width, height, gift.NearestNeighborResampling))
+		if g.Config.Width > opts.Width || g.Config.Height > opts.Height {
+			filters = append(filters, gift.ResizeToFit(opts.Width, opts.Height, gift.NearestNeighborResampling))
 		}
 	}
 
@@ -297,7 +299,7 @@ func cropGif(g *gif.GIF, op, width, height, percent, drop int, drawOnBefore bool
 	firstFrame := g.Image[0]
 	c.Config.Width = filter.Bounds(firstFrame.Bounds()).Max.X
 	c.Config.Height = filter.Bounds(firstFrame.Bounds()).Max.Y
-	if drawOnBefore {
+	if opts.GifDrawOnBefore {
 		tmp := image.NewNRGBA(firstFrame.Bounds())
 		for i := range g.Image {
 			// draw current frame over previous:
@@ -305,7 +307,7 @@ func cropGif(g *gif.GIF, op, width, height, percent, drop int, drawOnBefore bool
 			dst := image.NewPaletted(filter.Bounds(tmp.Bounds()), g.Image[i].Palette)
 			filter.Draw(dst, tmp)
 			delay = delay + g.Delay[i]
-			if drop == 0 || (i+1)%drop != 0 {
+			if opts.GifDropRate == 0 || (i+1)%opts.GifDropRate != 0 {
 				c.Image = append(c.Image, dst)
 				c.Delay = append(c.Delay, delay)
 				c.Disposal = append(c.Disposal, g.Disposal[i])
@@ -315,7 +317,7 @@ func cropGif(g *gif.GIF, op, width, height, percent, drop int, drawOnBefore bool
 	} else {
 		for i := range g.Image {
 			delay = delay + g.Delay[i]
-			if drop > 0 && (i+1)%drop == 0 {
+			if opts.GifDropRate > 0 && (i+1)%opts.GifDropRate == 0 {
 				continue
 			}
 			tmp := image.NewNRGBA(firstFrame.Bounds())
@@ -331,35 +333,35 @@ func cropGif(g *gif.GIF, op, width, height, percent, drop int, drawOnBefore bool
 	return c
 }
 
-func crop(img image.Image, op, width, height, percent int) image.Image {
-	switch op {
+func crop(img image.Image, opts *ImageOptions) image.Image {
+	switch opts.Op {
 	case Original:
 		return img
 	case FixedWH:
-		return imaging.Fill(img, width, height, imaging.Center, imaging.Lanczos)
+		return imaging.Fill(img, opts.Width, opts.Height, imaging.Center, imaging.Lanczos)
 	case FixedWidth:
-		return imaging.Resize(img, width, 0, imaging.Lanczos)
+		return imaging.Resize(img, opts.Width, 0, imaging.Lanczos)
 	case FixedHeight:
-		return imaging.Resize(img, 0, height, imaging.Lanczos)
+		return imaging.Resize(img, 0, opts.Height, imaging.Lanczos)
 	case Percentage:
-		w := math.Ceil(float64(img.Bounds().Dx()) * float64(percent) / 100)
-		h := math.Ceil(float64(img.Bounds().Dy()) * float64(percent) / 100)
+		w := math.Ceil(float64(img.Bounds().Dx()) * float64(opts.Percent) / 100)
+		h := math.Ceil(float64(img.Bounds().Dy()) * float64(opts.Percent) / 100)
 		return imaging.Fill(img, int(w), int(h), imaging.Center, imaging.Lanczos)
 	case MaxWidth:
-		if img.Bounds().Dx() <= width {
+		if img.Bounds().Dx() <= opts.Width {
 			return img
 		}
-		return imaging.Resize(img, width, 0, imaging.Lanczos)
+		return imaging.Resize(img, opts.Width, 0, imaging.Lanczos)
 	case MaxHeight:
-		if img.Bounds().Dy() <= height {
+		if img.Bounds().Dy() <= opts.Height {
 			return img
 		}
-		return imaging.Resize(img, 0, height, imaging.Lanczos)
+		return imaging.Resize(img, 0, opts.Height, imaging.Lanczos)
 	case MaxWH:
-		if img.Bounds().Dx() <= width && img.Bounds().Dy() <= height {
+		if img.Bounds().Dx() <= opts.Width && img.Bounds().Dy() <= opts.Height {
 			return img
 		}
-		return imaging.Fit(img, width, height, imaging.Lanczos)
+		return imaging.Fit(img, opts.Width, opts.Height, imaging.Lanczos)
 	}
 	return img
 }

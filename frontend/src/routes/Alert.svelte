@@ -2,7 +2,7 @@
   import { writable } from "svelte/store";
 
   let show = writable(false);
-  // 'primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark
+  // 'primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark'
   let alertType = "primary";
   let alertText = "";
 
