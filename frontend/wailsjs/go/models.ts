@@ -46,7 +46,7 @@ export namespace srvs {
 	    gifDrawOnBefore: boolean;
 	    webpLossless: boolean;
 	    webpQuality: number;
-	    WebpRgbInTransparent: boolean;
+	    webpRgbInTransparent: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ImageOptions(source);
@@ -67,7 +67,7 @@ export namespace srvs {
 	        this.gifDrawOnBefore = source["gifDrawOnBefore"];
 	        this.webpLossless = source["webpLossless"];
 	        this.webpQuality = source["webpQuality"];
-	        this.WebpRgbInTransparent = source["WebpRgbInTransparent"];
+	        this.webpRgbInTransparent = source["webpRgbInTransparent"];
 	    }
 	}
 

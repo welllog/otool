@@ -197,7 +197,7 @@
             case 'webp':
                 imgOpts.webpQuality = 90
                 imgOpts.webpLossless = false
-                imgOpts.WebpRgbInTransparent = false
+                imgOpts.webpRgbInTransparent = false
 
                 encoderOptionTitle = '质量'
                 encoderOptionMax = 100

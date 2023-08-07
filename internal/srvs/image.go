@@ -57,7 +57,7 @@ type ImageOptions struct {
 	GifDrawOnBefore      bool   `json:"gifDrawOnBefore"`
 	WebpLossless         bool   `json:"webpLossless"`
 	WebpQuality          int    `json:"webpQuality"`
-	WebpRgbInTransparent bool   `json:"WebpRgbInTransparent"`
+	WebpRgbInTransparent bool   `json:"webpRgbInTransparent"`
 }
 
 const (
