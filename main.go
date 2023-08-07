@@ -48,13 +48,14 @@ func main() {
 			WebviewIsTransparent: false, // 网页透明
 			WindowIsTranslucent:  true,  // 窗口半透明
 			DisableWindowIcon:    false, // 禁用窗口图标 true将删除标题栏左上角的图标
+			Theme:                windows.SystemDefault,
 		},
 		Mac: &mac.Options{
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  true,
 			About: &mac.AboutInfo{
-				Title:   "otool version",
-				Message: version,
+				Title:   "otool " + version,
+				Message: "© 2023 orinfy@foxmail.com",
 			},
 		},
 		Linux: &linux.Options{

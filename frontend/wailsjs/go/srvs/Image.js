@@ -6,12 +6,8 @@ export function Clean() {
   return window['go']['srvs']['Image']['Clean']();
 }
 
-export function Crop(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8) {
-  return window['go']['srvs']['Image']['Crop'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8);
-}
-
-export function CropGif(arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9) {
-  return window['go']['srvs']['Image']['CropGif'](arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9);
+export function CropAndSave(arg1) {
+  return window['go']['srvs']['Image']['CropAndSave'](arg1);
 }
 
 export function Decode(arg1) {

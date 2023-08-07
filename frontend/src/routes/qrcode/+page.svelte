@@ -103,7 +103,7 @@
     </div>
 
     <div class="mt-3">
-        <label class="form-label">二维码内容</label>
+        <label for="inputText" class="form-label">二维码内容</label>
         <textarea
             bind:value={text}
             class="form-control"
