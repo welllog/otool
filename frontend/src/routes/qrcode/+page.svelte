@@ -1,6 +1,6 @@
 <script>
     import { onMount } from "svelte";
-    import Alert, {showAlert, closeAlert} from "../Alert.svelte";
+    import {showAlert, closeAlert} from "../Alert.svelte";
     import * as image from "$wailsjs/go/srvs/Image";
     import * as app from "$wailsjs/go/internal/App";
 
@@ -84,8 +84,6 @@
 </script>
 
 <div class="container-fluid">
-    <Alert />
-
     <div class="mt-2">
         <button class="btn btn-outline-secondary" on:click={openFile} class:disabled={disabled}>
             {#if loading}

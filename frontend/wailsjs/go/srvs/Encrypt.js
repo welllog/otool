@@ -110,10 +110,26 @@ export function Sha512_256(arg1) {
   return window['go']['srvs']['Encrypt']['Sha512_256'](arg1);
 }
 
+export function UnicodeDec(arg1) {
+  return window['go']['srvs']['Encrypt']['UnicodeDec'](arg1);
+}
+
+export function UnicodeEnc(arg1) {
+  return window['go']['srvs']['Encrypt']['UnicodeEnc'](arg1);
+}
+
 export function UrlDec(arg1) {
   return window['go']['srvs']['Encrypt']['UrlDec'](arg1);
 }
 
 export function UrlEnc(arg1) {
   return window['go']['srvs']['Encrypt']['UrlEnc'](arg1);
+}
+
+export function Utf16Dec(arg1) {
+  return window['go']['srvs']['Encrypt']['Utf16Dec'](arg1);
+}
+
+export function Utf16Enc(arg1) {
+  return window['go']['srvs']['Encrypt']['Utf16Enc'](arg1);
 }

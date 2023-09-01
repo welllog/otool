@@ -2,12 +2,14 @@
     import 'bootstrap/dist/css/bootstrap.min.css'
     import 'bootstrap/dist/js/bootstrap.bundle.min.js'
     import Menu from './Menu.svelte'
+    import Alert from "./Alert.svelte";
 
 </script>
 
 <div class="main d-flex">
     <Menu />
     <div class="flex-fill overflow-scroll">
+        <Alert />
         <slot></slot>
     </div>
 </div>

@@ -1,6 +1,6 @@
 <script>
     import * as enc from "$wailsjs/go/srvs/encrypt.js";
-    import Alert, { showAlert, closeAlert } from "../Alert.svelte";
+    import { showAlert, closeAlert } from "../Alert.svelte";
 
     let showSecret = false;
     let showHmac = false, checkHmac = false;
@@ -32,6 +32,12 @@
                 case "hexEnc":
                     res = enc.HexEnc(inputText);
                     break;
+                case "unicodeEnc":
+                    res = enc.UnicodeEnc(inputText)
+                    break;
+                case "utf16Enc":
+                    res = enc.Utf16Enc(inputText)
+                    break;
                 case "opensslAesDec":
                     res = enc.OpenSSLAesDec(inputText, secretKey);
                     break;
@@ -46,6 +52,12 @@
                     break;
                 case "hexDec":
                     res = enc.HexDec(inputText);
+                    break;
+                case "unicodeDec":
+                    res = enc.UnicodeDec(inputText)
+                    break;
+                case "utf16Dec":
+                    res = enc.Utf16Dec(inputText)
                     break;
                 case "upper":
                     outputText = inputText.toUpperCase();
@@ -147,6 +159,14 @@
             value: "hexEnc",
         },
         {
+            name: "unicode编码",
+            value: "unicodeEnc",
+        },
+        {
+            name: "utf16编码",
+            value: "utf16Enc",
+        },
+        {
             name: "大写",
             value: "upper",
         },
@@ -206,6 +226,14 @@
             value: "hexDec",
         },
         {
+            name: "unicode解码",
+            value: "unicodeDec",
+        },
+        {
+            name: "utf16解码",
+            value: "utf16Dec",
+        },
+        {
             name: "小写",
             value: "lower",
         },
@@ -213,8 +241,6 @@
 </script>
 
 <div class="container-fluid">
-    <Alert />
-
     <div class="mb-3 mt-3">
         <label for="inputText" class="form-label">编解码文本</label>
         <textarea
