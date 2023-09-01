@@ -2,7 +2,7 @@
     import * as app from "$wailsjs/go/internal/App";
     import * as enc from "$wailsjs/go/srvs/Encrypt";
     import * as rt from "$wailsjs/runtime/runtime"
-    import Alert, {showAlert, closeAlert} from "../Alert.svelte";
+    import {showAlert, closeAlert} from "../Alert.svelte";
 
     let loading = false, disabled = false, showSecret = true, showOutput = false;
     let opt = 'encrypt', secretKey = '', outputText = '';
@@ -227,8 +227,6 @@
 </script>
 
 <div class="container-fluid">
-    <Alert/>
-
     编码：
     {#each encOpts as encOpt}
         <div class="form-check form-check-inline mt-3">

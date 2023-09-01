@@ -20,7 +20,7 @@
 
 {#if $show}
   <div
-    class="alert alert-{alertType} alert-dismissible fade show mt-3"
+    class="alert alert-{alertType} alert-dismissible fade show mt-3 mx-3"
     role="alert"
   >
     {alertText}

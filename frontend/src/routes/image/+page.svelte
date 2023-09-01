@@ -1,7 +1,7 @@
 <script>
     import * as image from "$wailsjs/go/srvs/Image"
     import * as app from "$wailsjs/go/internal/App";
-    import Alert, {showAlert, closeAlert} from "../Alert.svelte";
+    import {showAlert, closeAlert} from "../Alert.svelte";
     import { onDestroy } from 'svelte';
     import { srvs } from "$wailsjs/go/models"
 
@@ -223,8 +223,6 @@
 </script>
 
 <div class="container-fluid">
-    <Alert/>
-
     {#if img.name === undefined}
         <div class="mt-2">
             <button class="btn btn-outline-secondary" on:click={openFile} class:disabled={disabled}>

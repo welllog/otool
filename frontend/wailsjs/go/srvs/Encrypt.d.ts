@@ -55,6 +55,14 @@ export function Sha512_224(arg1:string):Promise<string>;
 
 export function Sha512_256(arg1:string):Promise<string>;
 
+export function UnicodeDec(arg1:string):Promise<string>;
+
+export function UnicodeEnc(arg1:string):Promise<string>;
+
 export function UrlDec(arg1:string):Promise<string>;
 
 export function UrlEnc(arg1:string):Promise<string>;
+
+export function Utf16Dec(arg1:string):Promise<string>;
+
+export function Utf16Enc(arg1:string):Promise<string>;

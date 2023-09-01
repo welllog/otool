@@ -113,19 +113,35 @@ func (e *Encrypt) UrlDec(in string) (string, error) {
 }
 
 func (e *Encrypt) OctEnc(in string) string {
-	return strz.OctalEncodeToString(in)
+	return strz.OctalFormatToString(in)
 }
 
 func (e *Encrypt) OctDec(in string) string {
-	return strz.OctalDecodeToString(in)
+	return strz.OctalParseToString(in)
 }
 
 func (e *Encrypt) HexEnc(in string) string {
-	return strz.HexEncodeToString(in)
+	return strz.HexFormatToString(in)
 }
 
-func (e *Encrypt) HexDec(in string) (string, error) {
-	return errx.LogStr(strz.HexDecodeToString(in))
+func (e *Encrypt) HexDec(in string) string {
+	return strz.HexParseToString(in)
+}
+
+func (e *Encrypt) UnicodeEnc(in string) string {
+	return strz.UnicodeFormatToString(in)
+}
+
+func (e *Encrypt) UnicodeDec(in string) string {
+	return strz.UnicodeParseToString(in)
+}
+
+func (e *Encrypt) Utf16Enc(in string) string {
+	return strz.Utf16FormatToString(in)
+}
+
+func (e *Encrypt) Utf16Dec(in string) string {
+	return strz.Utf16ParseToString(in)
 }
 
 func (e *Encrypt) EncryptFile(pathName, savePath, saveName, secret string) error {
