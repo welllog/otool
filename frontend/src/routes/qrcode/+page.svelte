@@ -1,8 +1,8 @@
 <script>
     import { onMount } from "svelte";
     import {showAlert, closeAlert} from "../Alert.svelte";
-    import * as image from "$wailsjs/go/srvs/Image";
-    import * as app from "$wailsjs/go/internal/App";
+    import * as image from "wjs/go/srvs/Image";
+    import * as app from "wjs/go/internal/App";
 
     let text = '', pathName = '', savePath = '', saveName = '';
     let disabled = false, loading = false;

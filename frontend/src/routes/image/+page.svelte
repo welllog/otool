@@ -1,9 +1,9 @@
 <script>
-    import * as image from "$wailsjs/go/srvs/Image"
-    import * as app from "$wailsjs/go/internal/App";
+    import * as image from "wjs/go/srvs/Image"
+    import * as app from "wjs/go/internal/App";
     import {showAlert, closeAlert} from "../Alert.svelte";
     import { onDestroy } from 'svelte';
-    import { srvs } from "$wailsjs/go/models"
+    import { srvs } from "wjs/go/models"
 
     let img = new srvs.ImageInfo();
     let imgOpts = new srvs.ImageOptions();

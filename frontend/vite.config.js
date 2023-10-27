@@ -7,7 +7,7 @@ export default defineConfig({
 	plugins: [sveltekit()],
 	resolve: {
 		alias: {
-			'$wailsjs': path.resolve(__dirname, './wailsjs')
+			'wjs': path.resolve(__dirname, './wailsjs')
 		}
 	},
 	server: {

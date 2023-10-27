@@ -1,7 +1,7 @@
 <script>
-    import * as app from "$wailsjs/go/internal/App";
-    import * as enc from "$wailsjs/go/srvs/Encrypt";
-    import * as rt from "$wailsjs/runtime/runtime"
+    import * as app from "wjs/go/internal/App";
+    import * as enc from "wjs/go/srvs/Encrypt";
+    import * as rt from "wjs/runtime/runtime"
     import {showAlert, closeAlert} from "../Alert.svelte";
 
     let loading = false, disabled = false, showSecret = true, showOutput = false;

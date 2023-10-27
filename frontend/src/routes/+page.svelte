@@ -1,5 +1,5 @@
 <script>
-  import * as app from "$wailsjs/go/internal/App";
+  import * as app from "wjs/go/internal/App";
   import { onMount } from "svelte";
 
   let version = '';

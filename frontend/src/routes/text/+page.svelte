@@ -1,17 +1,18 @@
 <script>
-    import * as enc from "$wailsjs/go/srvs/encrypt.js";
-    import { showAlert, closeAlert } from "../Alert.svelte";
+    import * as enc from "wjs/go/srvs/encrypt.js";
+    import { toast } from "$lib/ToastContainer.svelte";
+    import { Textarea, Label, Radio } from "flowbite-svelte";
 
     let showSecret = false;
     let showHmac = false, checkHmac = false;
-    let inputText, opt, secretKey, outputText;
+    let inputText = '', opt = '', secretKey = '', outputText = '';
     let inputLen = 0,
         outputLen = 0;
 
-    function transform() {
-        closeAlert();
-        inputLen = inputText.length;
+    $: inputLen = inputText.length;
+    $: console.log(opt);
 
+    function transform() {
         let res;
         if (showHmac && checkHmac) {
             res = enc.Hmac(inputText, secretKey, opt);
@@ -92,7 +93,7 @@
                     res = enc.Sha512_256(inputText);
                     break;
                 default:
-                    showAlert("warning", "未知操作");
+                    toast('warning', '未知操作', 1000);
                     return;
             }
         }
@@ -103,7 +104,7 @@
                 outputLen = outputText.length;
             })
             .catch((err) => {
-                showAlert("danger", err.toString());
+                toast('warning', err.toString(), 1000);
             });
     }
 
@@ -240,22 +241,25 @@
     ];
 </script>
 
-<div class="container-fluid">
-    <div class="mb-3 mt-3">
-        <label for="inputText" class="form-label">编解码文本</label>
-        <textarea
-            bind:value={inputText}
-            class="form-control"
-            id="inputText"
-            rows="3"
-            aria-describedby="inputHelp"
-        />
-        {#if inputLen > 0}
-            <div id="inputHelp" class="form-text">
-                <span class="text-danger">{inputLen}</span> chars
-            </div>
-        {/if}
+<div class="mb-3 mt-1">
+    <Label for="inputText" class="mb-1">编解码文本</Label>
+    <Textarea id="inputText" bind:value={inputText}> rows="3"
+        <div slot="footer" class="text-xs text-gray-500 dark:text-gray-100" >
+            <span class="text-red-500 dark:text-red-500">{inputLen}</span> chars
+        </div>
+    </Textarea>
+</div>
+
+<div>
+    <span class="dark:text-white">编码：</span>
+    <div class="flex">
+        {#each encOpts as encOpt}
+            <Radio value={encOpt.value} bind:group={opt}>{encOpt.name}</Radio>
+        {/each}
     </div>
+</div>
+
+<div class="container-fluid">
     编码：
     {#each encOpts as encOpt}
         <div class="form-check form-check-inline">
