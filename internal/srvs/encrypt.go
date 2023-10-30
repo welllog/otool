@@ -7,15 +7,17 @@ import (
 	"crypto/sha512"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"hash"
 	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
+	"time"
 
 	"github.com/welllog/golib/cryptz"
 	"github.com/welllog/golib/hashz"
+	"github.com/welllog/golib/randz"
 	"github.com/welllog/golib/strz"
 	"github.com/welllog/otool/internal/errx"
 )
@@ -144,14 +146,16 @@ func (e *Encrypt) Utf16Dec(in string) string {
 	return strz.Utf16ParseToString(in)
 }
 
-func (e *Encrypt) EncryptFile(pathName, savePath, saveName, secret string) error {
+func (e *Encrypt) EncryptFile(pathName, secret string) error {
 	r, err := os.Open(pathName)
 	if err != nil {
 		return errx.Logf("open file error: %s", err.Error())
 	}
 	defer r.Close()
 
-	savePathName := filepath.Join(savePath, saveName)
+	savePathName := filepath.Join(os.TempDir(),
+		fmt.Sprintf("otool_%s_%d_%d.enc", filepath.Base(pathName), time.Now().Unix(), randz.String(5)),
+	)
 	_, err = os.Stat(savePathName)
 	if err == nil || errors.Is(err, fs.ErrExist) {
 		return errx.Logf("file already exists: %s", savePathName)
@@ -163,17 +167,28 @@ func (e *Encrypt) EncryptFile(pathName, savePath, saveName, secret string) error
 	}
 	defer w.Close()
 
-	return errx.Log(cryptz.EncryptStreamTo(w, r, secret))
+	err = cryptz.EncryptStreamTo(w, r, secret)
+	if err != nil {
+		_ = os.Remove(savePathName)
+		return errx.Log(err)
+	}
+
+	_ = r.Close()
+	_ = w.Close()
+
+	return errx.Log(os.Rename(savePathName, pathName))
 }
 
-func (e *Encrypt) DecryptFile(pathName, savePath, saveName, secret string) error {
+func (e *Encrypt) DecryptFile(pathName, secret string) error {
 	r, err := os.Open(pathName)
 	if err != nil {
 		return errx.Logf("open file error: %s", err)
 	}
 	defer r.Close()
 
-	savePathName := filepath.Join(savePath, saveName)
+	savePathName := filepath.Join(os.TempDir(),
+		fmt.Sprintf("otool_%s_%d_%d.dec", filepath.Base(pathName), time.Now().Unix(), randz.String(5)),
+	)
 	_, err = os.Stat(savePathName)
 	if err == nil || errors.Is(err, fs.ErrExist) {
 		return errx.Logf("file already exists: %s", savePathName)
@@ -185,7 +200,16 @@ func (e *Encrypt) DecryptFile(pathName, savePath, saveName, secret string) error
 	}
 	defer w.Close()
 
-	return errx.Log(cryptz.DecryptStreamTo(w, r, secret))
+	err = cryptz.DecryptStreamTo(w, r, secret)
+	if err != nil {
+		_ = os.Remove(savePathName)
+		return errx.Log(err)
+	}
+
+	_ = r.Close()
+	_ = w.Close()
+
+	return errx.Log(os.Rename(savePathName, pathName))
 }
 
 func (e *Encrypt) Md5File(pathName string) (string, error) {
@@ -278,23 +302,13 @@ func (e *Encrypt) Sha512File(pathName string) (string, error) {
 	return strz.UnsafeString(b), nil
 }
 
-func (e *Encrypt) DefaultEncryptFilePath(pathName string) []string {
-	pathName = pathName + ".enc"
-	return []string{filepath.Dir(pathName), filepath.Base(pathName)}
+type streamProgress struct {
+	n     int
+	size  int
+	event string
 }
 
-func (e *Encrypt) DefaultDecryptFilePath(pathName string) []string {
-	name := filepath.Base(pathName)
-	if strings.HasSuffix(name, ".enc") {
-		name = strings.TrimSuffix(name, ".enc")
-	} else {
-		index := strings.LastIndex(name, ".")
-		if index > 0 {
-			name = name[:index] + ".dec" + name[index:]
-		} else {
-			name += ".dec"
-		}
-	}
-
-	return []string{filepath.Dir(pathName), name}
+func (s *streamProgress) Write(b []byte) (int, error) {
+	s.n += len(b)
+	return len(b), nil
 }

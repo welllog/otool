@@ -1,9 +1,10 @@
 <script>
     import * as image from "wjs/go/srvs/Image"
     import * as app from "wjs/go/internal/App";
-    import {showAlert, closeAlert} from "../Alert.svelte";
+    import { toast } from "$lib/ToastContainer.svelte";
     import { onDestroy } from 'svelte';
     import { srvs } from "wjs/go/models"
+    import { Dropzone } from 'flowbite-svelte';
 
     let img = new srvs.ImageInfo();
     let imgOpts = new srvs.ImageOptions();
@@ -104,7 +105,6 @@
     ]
 
     async function openFile() {
-        closeAlert();
         disabled = true;
 
         try {
@@ -122,7 +122,7 @@
 
             changeEncoderOption(encoder)
         } catch (e) {
-            showAlert("danger", e.toString());
+            toast("danger", e.toString())
         } finally {
             disabled = false;
             loading = false;
@@ -147,23 +147,21 @@
             imgOpts.savePath = path;
 
         } catch (err) {
-            showAlert("danger", err.toString());
+            toast("danger", err.toString())
         } finally {
             disabled = false;
         }
     }
 
     function transform() {
-        closeAlert()
-
         disabled = true;
         loading = true
 
         image.CropAndSave(imgOpts).then(() => {
-            showAlert("success", "转换成功");
+            toast("success", "转换成功");
         })
         .catch((err) => {
-            showAlert("danger", err.toString());
+            toast("danger", err.toString())
         })
         .finally(() => {
             disabled = false;
@@ -209,8 +207,7 @@
 
     function clean() {
         img = {}
-        image.Clean()
-        closeAlert()
+        // image.Clean()
     }
 
     onDestroy(() => {
@@ -220,7 +217,65 @@
     function outputName() {
         imgOpts.saveName = img.noSuffixName + '-' + imgOpts.width + '-' + imgOpts.height + '-' + imgOpts.percent + '.' + encoder
     }
+
+    let value = [];
+    const dropHandle = (event) => {
+        value = [];
+        event.preventDefault();
+        if (event.dataTransfer.items) {
+            [...event.dataTransfer.items].forEach((item, i) => {
+                if (item.kind === 'file') {
+                    const file = item.getAsFile();
+                    value.push(file.name);
+                    value = value;
+                }
+            });
+        } else {
+            [...event.dataTransfer.files].forEach((file, i) => {
+                value = file.name;
+            });
+        }
+    };
+
+    const handleChange = (event) => {
+        const files = event.target.files;
+        if (files.length > 0) {
+            value.push(files[0].name);
+            value = value;
+        }
+    };
+
+    const showFiles = (files) => {
+        if (files.length === 1) return files[0];
+        let concat = '';
+        files.map((file) => {
+            concat += file;
+            concat += ',';
+            concat += ' ';
+        });
+
+        if (concat.length > 40) concat = concat.slice(0, 40);
+        concat += '...';
+        return concat;
+    };
 </script>
+
+<Dropzone
+        class="mt-3"
+        id="dropzone"
+        on:drop={dropHandle}
+        on:dragover={(event) => {
+    event.preventDefault();
+  }}
+        on:change={handleChange}>
+    <svg aria-hidden="true" class="mb-3 w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+    {#if value.length === 0}
+        <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+        <p class="text-xs text-gray-500 dark:text-gray-400">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
+    {:else}
+        <p>{showFiles(value)}</p>
+    {/if}
+</Dropzone>
 
 <div class="container-fluid">
     {#if img.name === undefined}

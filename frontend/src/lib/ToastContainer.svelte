@@ -3,6 +3,8 @@
     import { fade, fly } from 'svelte/transition';
     import Toast from './Toast.svelte';
 
+    export let defaultDuration = 2000;
+
     interface toastMeta {
         symbol: symbol;
         type: string;
@@ -18,6 +20,10 @@
             t.unshift({ symbol, type, message, duration })
             return t;
         })
+
+        if (duration === 0) {
+            duration = defaultDuration;
+        }
 
         if (duration > 0) {
             setTimeout(() => {

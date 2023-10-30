@@ -1,6 +1,6 @@
 <script>
     import { onMount } from "svelte";
-    import {showAlert, closeAlert} from "../Alert.svelte";
+    import { toast } from "$lib/ToastContainer.svelte";
     import * as image from "wjs/go/srvs/Image";
     import * as app from "wjs/go/internal/App";
 
@@ -20,7 +20,6 @@
     });
 
     async function openFile() {
-        closeAlert();
         disabled = true;
 
         try {
@@ -33,7 +32,7 @@
             text = await image.QrDecode(pathName);
 
         } catch (e) {
-            showAlert("danger", e.toString());
+            toast("danger", e.toString());
         } finally {
             disabled = false;
             loading = false;
@@ -50,14 +49,13 @@
             savePath = path;
 
         } catch (err) {
-            showAlert("danger", err.toString());
+            toast("danger", err.toString());
         } finally {
             disabled = false;
         }
     }
 
     async function genQrcode() {
-        closeAlert();
         disabled = true;
         loading = true;
 
@@ -69,7 +67,7 @@
 
             await image.QrEncode(text, savePath, saveName, recover, size);
         } catch (e) {
-            showAlert("danger", e.toString());
+            toast("danger", e.toString());
         } finally {
             disabled = false;
             loading = false;
@@ -77,9 +75,9 @@
     }
 
     $: if (text.length >= 0) {
-        app.RandId().then((id) => {
-            saveName = id + '.png'
-        })
+        // app.RandId().then((id) => {
+        //     saveName = id + '.png'
+        // })
     }
 </script>
 
