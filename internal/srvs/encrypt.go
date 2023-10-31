@@ -1,6 +1,7 @@
 package srvs
 
 import (
+	"context"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -9,20 +10,25 @@ import (
 	"errors"
 	"fmt"
 	"hash"
-	"io/fs"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/welllog/golib/cryptz"
+	"github.com/welllog/golib/goz"
 	"github.com/welllog/golib/hashz"
 	"github.com/welllog/golib/randz"
 	"github.com/welllog/golib/strz"
+	"github.com/welllog/olog"
 	"github.com/welllog/otool/internal/errx"
 )
 
-type Encrypt struct{}
+type Encrypt struct {
+	Ctx context.Context
+	Gow *goz.Limiter
+}
 
 func (e *Encrypt) OpenSSLAesEnc(in, secret string) (string, error) {
 	b, err := cryptz.Encrypt(in, secret)
@@ -146,70 +152,138 @@ func (e *Encrypt) Utf16Dec(in string) string {
 	return strz.Utf16ParseToString(in)
 }
 
-func (e *Encrypt) EncryptFile(pathName, secret string) error {
+func (e *Encrypt) EncryptFile(pathName, secret string) (string, error) {
+	baseName := filepath.Base(pathName)
+	savePathName := filepath.Join(os.TempDir(),
+		fmt.Sprintf("otool_%s_%d_%d.enc", baseName, time.Now().Unix(), randz.String(10)),
+	)
+
+	fileInfo, err := os.Stat(pathName)
+	if err != nil {
+		return "", errx.Logf("获取文件%s信息失败: %s", baseName, err.Error())
+	}
+
 	r, err := os.Open(pathName)
 	if err != nil {
-		return errx.Logf("open file error: %s", err.Error())
-	}
-	defer r.Close()
-
-	savePathName := filepath.Join(os.TempDir(),
-		fmt.Sprintf("otool_%s_%d_%d.enc", filepath.Base(pathName), time.Now().Unix(), randz.String(5)),
-	)
-	_, err = os.Stat(savePathName)
-	if err == nil || errors.Is(err, fs.ErrExist) {
-		return errx.Logf("file already exists: %s", savePathName)
+		return "", errx.Logf("打开%s失败: %s", baseName, err.Error())
 	}
 
 	w, err := os.OpenFile(savePathName, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
 	if err != nil {
-		return errx.Logf("create file error: %s", err)
-	}
-	defer w.Close()
-
-	err = cryptz.EncryptStreamTo(w, r, secret)
-	if err != nil {
-		_ = os.Remove(savePathName)
-		return errx.Log(err)
+		_ = r.Close()
+		return "", errx.Logf("创建临时文件失败: %s", err.Error())
 	}
 
-	_ = r.Close()
-	_ = w.Close()
+	progress := streamProgress{size: fileInfo.Size() + 16, event: savePathName, ctx: e.Ctx}
+	e.Gow.Go(func() {
+		defer func() {
+			_ = w.Close()
+			_ = r.Close()
+			progress.close()
+		}()
 
-	return errx.Log(os.Rename(savePathName, pathName))
+		dst := io.MultiWriter(w, &progress)
+		err = cryptz.EncryptStreamTo(dst, r, secret)
+		if err != nil {
+			_ = os.Remove(savePathName)
+			olog.Errorf("加密%s失败: %s", baseName, err.Error())
+
+			notify(e.Ctx, NotifyEvent{
+				Info: fmt.Sprintf("加密%s失败: %s", baseName, err.Error()),
+				Type: "danger",
+			})
+			return
+		}
+
+		_ = r.Close()
+		_ = w.Close()
+
+		err = os.Rename(savePathName, pathName)
+		if err != nil {
+			_ = os.Remove(savePathName)
+			olog.Errorf("重命名%s失败: %s", baseName, err.Error())
+
+			notify(e.Ctx, NotifyEvent{
+				Info: fmt.Sprintf("加密替换%s失败: %s", baseName, err.Error()),
+				Type: "danger",
+			})
+			return
+		}
+
+		notify(e.Ctx, NotifyEvent{
+			Info: fmt.Sprintf("加密%s成功", baseName),
+			Type: "success",
+		})
+	})
+
+	return savePathName, nil
 }
 
-func (e *Encrypt) DecryptFile(pathName, secret string) error {
+func (e *Encrypt) DecryptFile(pathName, secret string) (string, error) {
+	baseName := filepath.Base(pathName)
+	savePathName := filepath.Join(os.TempDir(),
+		fmt.Sprintf("otool_%s_%d_%d.dec", baseName, time.Now().Unix(), randz.String(10)),
+	)
+
+	fileInfo, err := os.Stat(pathName)
+	if err != nil {
+		return "", errx.Logf("获取文件%s信息失败: %s", baseName, err.Error())
+	}
+
 	r, err := os.Open(pathName)
 	if err != nil {
-		return errx.Logf("open file error: %s", err)
-	}
-	defer r.Close()
-
-	savePathName := filepath.Join(os.TempDir(),
-		fmt.Sprintf("otool_%s_%d_%d.dec", filepath.Base(pathName), time.Now().Unix(), randz.String(5)),
-	)
-	_, err = os.Stat(savePathName)
-	if err == nil || errors.Is(err, fs.ErrExist) {
-		return errx.Logf("file already exists: %s", savePathName)
+		return "", errx.Logf("打开%s失败: %s", baseName, err.Error())
 	}
 
 	w, err := os.OpenFile(savePathName, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0666)
 	if err != nil {
-		return errx.Logf("create file error: %s", err)
-	}
-	defer w.Close()
-
-	err = cryptz.DecryptStreamTo(w, r, secret)
-	if err != nil {
-		_ = os.Remove(savePathName)
-		return errx.Log(err)
+		_ = r.Close()
+		return "", errx.Logf("创建临时文件失败: %s", err.Error())
 	}
 
-	_ = r.Close()
-	_ = w.Close()
+	progress := streamProgress{size: fileInfo.Size() - 16, event: savePathName, ctx: e.Ctx}
+	e.Gow.Go(func() {
+		defer func() {
+			_ = w.Close()
+			_ = r.Close()
+			progress.close()
+		}()
 
-	return errx.Log(os.Rename(savePathName, pathName))
+		dst := io.MultiWriter(w, &progress)
+		err = cryptz.DecryptStreamTo(dst, r, secret)
+		if err != nil {
+			_ = os.Remove(savePathName)
+			olog.Errorf("解密%s失败: %s", baseName, err.Error())
+
+			notify(e.Ctx, NotifyEvent{
+				Info: fmt.Sprintf("解密%s失败: %s", baseName, err.Error()),
+				Type: "danger",
+			})
+			return
+		}
+
+		_ = r.Close()
+		_ = w.Close()
+
+		err = os.Rename(savePathName, pathName)
+		if err != nil {
+			_ = os.Remove(savePathName)
+			olog.Errorf("重命名%s失败: %s", baseName, err.Error())
+
+			notify(e.Ctx, NotifyEvent{
+				Info: fmt.Sprintf("解密替换%s失败: %s", baseName, err.Error()),
+				Type: "danger",
+			})
+			return
+		}
+
+		notify(e.Ctx, NotifyEvent{
+			Info: fmt.Sprintf("解密%s成功", baseName),
+			Type: "success",
+		})
+	})
+
+	return savePathName, nil
 }
 
 func (e *Encrypt) Md5File(pathName string) (string, error) {
@@ -300,15 +374,4 @@ func (e *Encrypt) Sha512File(pathName string) (string, error) {
 	}
 
 	return strz.UnsafeString(b), nil
-}
-
-type streamProgress struct {
-	n     int
-	size  int
-	event string
-}
-
-func (s *streamProgress) Write(b []byte) (int, error) {
-	s.n += len(b)
-	return len(b), nil
 }

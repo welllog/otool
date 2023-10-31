@@ -6,6 +6,10 @@ export function DefaultPath() {
   return window['go']['internal']['App']['DefaultPath']();
 }
 
+export function OnShutdown(arg1) {
+  return window['go']['internal']['App']['OnShutdown'](arg1);
+}
+
 export function OpenDirectoryDialog() {
   return window['go']['internal']['App']['OpenDirectoryDialog']();
 }

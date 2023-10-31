@@ -22,6 +22,6 @@ export function QrDecode(arg1) {
   return window['go']['srvs']['Image']['QrDecode'](arg1);
 }
 
-export function QrEncode(arg1, arg2, arg3, arg4, arg5) {
-  return window['go']['srvs']['Image']['QrEncode'](arg1, arg2, arg3, arg4, arg5);
+export function QrEncode(arg1, arg2, arg3, arg4) {
+  return window['go']['srvs']['Image']['QrEncode'](arg1, arg2, arg3, arg4);
 }

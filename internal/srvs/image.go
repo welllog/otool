@@ -22,6 +22,8 @@ import (
 	"github.com/skip2/go-qrcode"
 	dqr "github.com/tuotoo/qrcode"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/welllog/golib/randz"
+	"github.com/welllog/golib/strz"
 	"github.com/welllog/olog"
 	"github.com/welllog/otool/internal/errx"
 	_ "golang.org/x/image/bmp"
@@ -210,30 +212,25 @@ func (i *Image) Clean() {
 	i.pathName = ""
 }
 
-func (i *Image) QrEncode(text, savePath, saveName string, recover, size int) error {
+func (i *Image) QrEncode(text, savePath string, recover, size int) (string, error) {
+	saveName := fmt.Sprintf("%s_%s_%d_%d.png", fileName(strz.Sub(text, 0, 10)), randz.String(5), recover, size)
 	savePathName := filepath.Join(savePath, saveName)
 
 	_, err := os.Stat(savePathName)
 	if err == nil || errors.Is(err, fs.ErrExist) {
-		return errx.Logf("file already exists: %s", savePathName)
+		return "", errx.Logf("file already exists: %s", savePathName)
 	}
 
 	b, err := qrcode.Encode(text, qrcode.RecoveryLevel(recover), size)
 	if err != nil {
-		return errx.Log(err)
-	}
-
-	return errx.Log(os.WriteFile(savePathName, b, 0644))
-}
-
-func (i *Image) QrDecode(pathName string) (string, error) {
-	f, err := os.Open(pathName)
-	if err != nil {
 		return "", errx.Log(err)
 	}
-	defer f.Close()
 
-	m, err := dqr.Decode(f)
+	return saveName, errx.Log(os.WriteFile(savePathName, b, 0644))
+}
+
+func (i *Image) QrDecode(b []byte) (string, error) {
+	m, err := dqr.Decode(bytes.NewReader(b))
 	if err != nil {
 		return "", errx.Log(err)
 	}

@@ -1,14 +1,18 @@
 <script>
     import * as app from "wjs/go/internal/App";
     import * as enc from "wjs/go/srvs/Encrypt";
+    import {EventsOn,EventsOff} from 'wjs/runtime/runtime';
+    import {onDestroy} from 'svelte';
     import { toast } from "$lib/ToastContainer.svelte";
     import Label from "$lib/Label.svelte";
-    import { Textarea , Radio, Input, Button, ButtonGroup, Spinner, Modal } from "flowbite-svelte";
+    import { Textarea , Radio, Input, Button, ButtonGroup, Spinner, Modal, Progressbar } from "flowbite-svelte";
 
-    let loading = false, disabled = false, showSecret = true, showOutput = false, popupModal = false;
+    let loading = false, disabled = false, showSecret = true, showOutput = false, popupModal = false, showProgress = false;
     let opt = 'encrypt', secretKey = '', outputText = '';
     let outputLen = 0
     let inputFile = '';
+    let curProgress = 0;
+    let progressClose = () => {};
 
     $: outputLen = outputText.length
 
@@ -27,7 +31,7 @@
         }
 
         if (opt === 'decrypt') {
-            decryptFile().finally(() => disabled = false);
+            decryptFile();
             return
         }
 
@@ -37,7 +41,7 @@
 
     function transformEnc() {
         disabled = true;
-        encryptFile().finally(() => disabled = false);
+        encryptFile();
     }
 
     async function encryptFile() {
@@ -45,14 +49,24 @@
             toast("danger", "请填写密钥")
             return;
         }
-        let fileName = inputFile.split("/").pop();
+
         loading = true;
 
         try {
-            await enc.EncryptFile(inputFile, secretKey);
-            toast("success", fileName + " 加密成功");
+            let eventName = await enc.EncryptFile(inputFile, secretKey);
+            curProgress = 0;
+            showProgress = true;
+            progressClose = EventsOn(eventName, (progress) => {
+                if (progress >= 0) {
+                    curProgress = progress;
+                } else {
+                    EventsOff(eventName);
+                    showProgress = false;
+                    disabled = false;
+                }
+            })
         } catch (err) {
-            toast("danger", fileName + ' 加密出错: ' + err.toString());
+            toast("danger", err.toString());
         } finally {
             loading = false;
         }
@@ -64,14 +78,23 @@
             return;
         }
 
-        let fileName = inputFile.split("/").pop();
         loading = true;
 
         try {
-            await enc.DecryptFile(inputFile, secretKey);
-            toast("success", fileName + " 解密成功");
+            let eventName = await enc.DecryptFile(inputFile, secretKey);
+            curProgress = 0;
+            showProgress = true;
+            progressClose = EventsOn(eventName, (progress) => {
+                if (progress >= 0) {
+                    curProgress = progress;
+                } else {
+                    EventsOff(eventName);
+                    showProgress = false;
+                    disabled = false;
+                }
+            })
         } catch (err) {
-            toast("danger", fileName + '解密出错: ' + err.toString());
+            toast("danger", err.toString());
         } finally {
             loading = false;
         }
@@ -139,6 +162,10 @@
         showSecret = false;
         secretKey = '';
     }
+
+    onDestroy(() => {
+        progressClose();
+    })
 
     let encOpts = [
         {
@@ -214,23 +241,6 @@
     <Input bind:value={inputFile} disabled/>
 </ButtonGroup>
 
-<!--{#if !showOutput}-->
-<!--    <ButtonGroup class="w-full mb-3">-->
-<!--        <Button size="xs" color="blue" on:click={openFolder}>-->
-<!--            {#if loading}-->
-<!--                <Spinner size="4" class="mr-3"/>-->
-<!--            {/if}-->
-<!--            选择保存目录-->
-<!--        </Button>-->
-<!--        <Input bind:value={outputPath} disabled/>-->
-<!--    </ButtonGroup>-->
-
-<!--    <ButtonGroup class="w-full mb-3">-->
-<!--        <Button size="xs" color="blue" disabled>保存文件名</Button>-->
-<!--        <Textarea bind:value={outputName} {disabled} />-->
-<!--    </ButtonGroup>-->
-<!--{/if}-->
-
 <div class="mb-3">
     <Button
         on:click={transform}
@@ -251,6 +261,10 @@
             <span class="text-red-500 dark:text-red-500">{outputLen}</span> chars
         </div>
     </Textarea>
+{/if}
+
+{#if showProgress }
+    <Progressbar bind:progress={curProgress} size="h-4" labelInside />
 {/if}
 
 <Modal bind:open={popupModal} size="xs" autoclose title="确认进行加密?">

@@ -10,6 +10,6 @@ export function Decode(arg1:string):Promise<srvs.ImageInfo>;
 
 export function OpenFileDialog():Promise<string>;
 
-export function QrDecode(arg1:string):Promise<string>;
+export function QrDecode(arg1:Array<number>):Promise<string>;
 
-export function QrEncode(arg1:string,arg2:string,arg3:string,arg4:number,arg5:number):Promise<void>;
+export function QrEncode(arg1:string,arg2:string,arg3:number,arg4:number):Promise<string>;
