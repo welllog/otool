@@ -94,6 +94,7 @@
     };
 
     function decodeQr(file) {
+        text = '';
         disabled = true;
         loading = true
 

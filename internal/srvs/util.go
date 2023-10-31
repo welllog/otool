@@ -39,15 +39,15 @@ func notify(ctx context.Context, e NotifyEvent) {
 }
 
 var fileNameReplacer = strings.NewReplacer(
-	"\\", "-",
-	":", "-",
-	"*", "-",
-	"?", "-",
-	"\"", "-",
-	"<", "-",
-	">", "-",
-	"|", "-",
-	"/", "-",
+	"\\", "_",
+	":", "_",
+	"*", "_",
+	"?", "_",
+	"\"", "_",
+	"<", "_",
+	">", "_",
+	"|", "_",
+	"/", "_",
 )
 
 func fileName(str string) string {
