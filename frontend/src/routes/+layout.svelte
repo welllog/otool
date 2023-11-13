@@ -135,7 +135,7 @@
     </Sidebar>
 </Drawer>
 
-<div class="flex px-4 mx-auto dark:bg-slate-900 overflow-scroll" style="height: {height - 44}px">
+<div class="flex px-4 mx-auto bg-white dark:bg-slate-900 overflow-scroll" style="height: {height - 44}px">
     <main class="lg:ml-72 w-full mx-auto">
         <slot/>
     </main>

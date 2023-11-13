@@ -11,6 +11,7 @@
 
     let sysTheme = 'dark';
     let theme = 'auto';
+    let active = themeOps.get(theme);
 
     onMount(() => {
         theme = localStorage.getItem('theme') || 'auto';
@@ -59,9 +60,9 @@
                 }
                 break;
         }
+        active = themeOps.get(theme);
     });
 
-    let active = themeOps.get(theme);
     const changeTheme = i => {
         active = i;
         switch (i) {

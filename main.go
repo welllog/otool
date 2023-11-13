@@ -46,9 +46,9 @@ func main() {
 			app.ImageSrv,
 		},
 		Windows: &windows.Options{
-			WebviewIsTransparent: true, // 网页透明
-			WindowIsTranslucent:  true, // 窗口半透明
-			DisableWindowIcon:    true, // 禁用窗口图标 true将删除标题栏左上角的图标
+			WebviewIsTransparent: false, // 网页透明
+			WindowIsTranslucent:  true,  // 窗口半透明
+			DisableWindowIcon:    true,  // 禁用窗口图标 true将删除标题栏左上角的图标
 			Theme:                windows.SystemDefault,
 		},
 		Mac: &mac.Options{
