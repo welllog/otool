@@ -29,7 +29,7 @@
     ]
 
     onMount(() => {
-        app.DefaultPath().then((p) => {outPath = p})
+        app.DefaultPath().then((path) => {outPath = path})
     });
 
     async function openFolder() {
@@ -163,17 +163,17 @@
         <div class="mb-3">
             <Label>尺寸</Label>
             <ButtonGroup class="w-full">
-                <Input type="number" bind:value={size} />
+                <Input size="sm" type="number" bind:value={size} />
                 <InputAddon>px</InputAddon>
             </ButtonGroup>
         </div>
 
         <div class="mb-3">
             <ButtonGroup class="mb-3 w-full">
-                <Button size="xs" color="blue" on:click={openFolder}>
+                <Button class="flex-shrink-0" color="green" on:click={openFolder}>
                     选择保存目录
                 </Button>
-                <Input bind:value={outPath} disabled/>
+                <Input size="sm" bind:value={outPath} disabled/>
             </ButtonGroup>
         </div>
 

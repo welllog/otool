@@ -3,6 +3,7 @@ package srvs
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -32,6 +33,30 @@ func (s *streamProgress) progress() {
 
 func (s *streamProgress) close() {
 	runtime.EventsEmit(s.ctx, s.event, -1)
+}
+
+type countProgress struct {
+	n     int
+	count int
+	event string
+	ctx   context.Context
+}
+
+func (c *countProgress) Incr() {
+	c.n++
+	p := c.n * 100 / c.count
+	runtime.EventsEmit(c.ctx, c.event, p)
+}
+
+func (c *countProgress) close() {
+	runtime.EventsEmit(c.ctx, c.event, -1)
+}
+
+type taskRecord struct {
+	progress countProgress
+	errCh    chan error
+	done     sync.WaitGroup
+	name     string
 }
 
 func notify(ctx context.Context, e NotifyEvent) {

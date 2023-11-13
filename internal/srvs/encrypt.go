@@ -155,7 +155,7 @@ func (e *Encrypt) Utf16Dec(in string) string {
 func (e *Encrypt) EncryptFile(pathName, secret string) (string, error) {
 	baseName := filepath.Base(pathName)
 	savePathName := filepath.Join(os.TempDir(),
-		fmt.Sprintf("otool_%s_%d_%d.enc", baseName, time.Now().Unix(), randz.String(10)),
+		fmt.Sprintf("otool_%s_%d_%s.enc", baseName, time.Now().Unix(), randz.String(10)),
 	)
 
 	fileInfo, err := os.Stat(pathName)
@@ -222,7 +222,7 @@ func (e *Encrypt) EncryptFile(pathName, secret string) (string, error) {
 func (e *Encrypt) DecryptFile(pathName, secret string) (string, error) {
 	baseName := filepath.Base(pathName)
 	savePathName := filepath.Join(os.TempDir(),
-		fmt.Sprintf("otool_%s_%d_%d.dec", baseName, time.Now().Unix(), randz.String(10)),
+		fmt.Sprintf("otool_%s_%d_%s.dec", baseName, time.Now().Unix(), randz.String(10)),
 	)
 
 	fileInfo, err := os.Stat(pathName)
@@ -241,7 +241,7 @@ func (e *Encrypt) DecryptFile(pathName, secret string) (string, error) {
 		return "", errx.Logf("创建临时文件失败: %s", err.Error())
 	}
 
-	progress := streamProgress{size: fileInfo.Size() - 16, event: savePathName, ctx: e.Ctx}
+	progress := &streamProgress{size: fileInfo.Size() - 16, event: savePathName, ctx: e.Ctx}
 	e.Gow.Go(func() {
 		defer func() {
 			_ = w.Close()
@@ -249,7 +249,7 @@ func (e *Encrypt) DecryptFile(pathName, secret string) (string, error) {
 			progress.close()
 		}()
 
-		dst := io.MultiWriter(w, &progress)
+		dst := io.MultiWriter(w, progress)
 		err = cryptz.DecryptStreamTo(dst, r, secret)
 		if err != nil {
 			_ = os.Remove(savePathName)

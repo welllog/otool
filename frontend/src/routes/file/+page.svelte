@@ -227,18 +227,18 @@
 {#if showSecret}
     <div class="mb-3">
         <Label for="secretKey">密钥</Label>
-        <Input type="text" bind:value={secretKey} id="secretKey" />
+        <Input size="sm" type="text" bind:value={secretKey} id="secretKey" />
     </div>
 {/if}
 
 <ButtonGroup class="w-full mb-3">
-    <Button size="xs" color="blue" on:click={openFile}>
+    <Button class="flex-shrink-0" color="green" on:click={openFile}>
         {#if loading}
             <Spinner size="4" class="mr-3"/>
         {/if}
         选择文件
     </Button>
-    <Input bind:value={inputFile} disabled/>
+    <Input size="sm" bind:value={inputFile} disabled/>
 </ButtonGroup>
 
 <div class="mb-3">
@@ -270,7 +270,7 @@
 <Modal bind:open={popupModal} size="xs" autoclose title="确认进行加密?">
     <div class="text-center">
         <h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">文件加密后丢失密钥将无法恢复,请做好备份</h3>
-        <Button color="red" class="mr-2" on:click={transformEnc}>确认</Button>
-        <Button color="alternative">放弃</Button>
+        <Button size="xs" color="red" class="mr-2" on:click={transformEnc}>确认</Button>
+        <Button size="xs" color="alternative">放弃</Button>
     </div>
 </Modal>

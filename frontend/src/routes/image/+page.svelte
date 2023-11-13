@@ -1,16 +1,20 @@
 <script>
     import 'filepond/dist/filepond.min.css';
     import 'filepond-plugin-image-preview/dist/filepond-plugin-image-preview.min.css';
-    import FilePond, { registerPlugin, supported } from 'svelte-filepond';
+    import FilePond, { registerPlugin } from 'svelte-filepond';
     import FilePondPluginImageExifOrientation from 'filepond-plugin-image-exif-orientation';
     import FilePondPluginImagePreview from 'filepond-plugin-image-preview';
     import FilePondPluginFileValidateType from 'filepond-plugin-file-validate-type';
+    import md5 from 'md5';
 
     import * as image from "wjs/go/srvs/Image"
     import * as app from "wjs/go/internal/App";
     import { toast } from "$lib/ToastContainer.svelte";
     import { onMount, onDestroy } from 'svelte';
-    import { srvs } from "wjs/go/models"
+    import { srvs } from "wjs/go/models";
+    import {Radio, Select, Input, Button, ButtonGroup, InputAddon, Range, Checkbox, Spinner, Progressbar} from 'flowbite-svelte';
+    import Label from '$lib/Label.svelte';
+    import {EventsOn,EventsOff} from 'wjs/runtime/runtime';
 
     // Register the plugins
     registerPlugin(
@@ -19,33 +23,62 @@
         FilePondPluginFileValidateType,
     );
 
-    let pond;
-
-    onMount(() => {
-        console.log(supported());
-    })
-
-    // the name to use for the internal file input
-    let name = 'filepond';
-
+    const name = 'filepond';
     const acceptedFileTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/bmp', 'image/tiff', 'image/webp'];
-
-    // handle filepond events
-    function handleInit() {}
-
-    function handleAddFile(err, fileItem) {
-        console.log(fileItem.getMetadata());
-        console.log('A file has been added', fileItem);
-    }
-
-    let img = new srvs.ImageInfo();
+    let pond;
+    let filesNum = 0;
+    let firstWidth = 0, firstHeight = 0;
     let imgOpts = new srvs.ImageOptions();
     imgOpts.op = 0;
+    imgOpts.encoder = 'png';
+    imgOpts.percent = 100;
 
     let disabled = false, loading = false;
-    let encoderOptionTitle = '', encoderOptionMax , encoderOptionMin;
+    setOptionForEncoder(imgOpts.encoder)
+    let curProgress = 0;
+    let progressClose = () => {};
+    let showProgress = false;
 
-    let ops = [
+    onMount(() => {
+        app.DefaultPath().then((path) => {imgOpts.outPath = path})
+    })
+
+    function handleAddFile(err, fileItem) {
+        if (acceptedFileTypes.includes(fileItem.file.type)) {
+            filesNum++;
+            if (firstWidth === 0 || firstHeight === 0) {
+                loadImage(fileItem.file).then((img) => {
+                    firstWidth = img.width
+                    firstHeight = img.height
+                    imgOpts.width = firstWidth
+                    imgOpts.height = firstHeight
+                })
+            }
+        }
+    }
+
+    function handleRemoveFile(err, fileItem) {
+        if (acceptedFileTypes.includes(fileItem.file.type)) {
+            filesNum--;
+        }
+    }
+
+    function loadImage(file) {
+        return new Promise(function (resolve, reject) {
+            let reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function (evt) {
+                let replaceSrc = evt.target.result;
+                let imageObj = new Image();
+                imageObj.src = replaceSrc;
+                imageObj.onload = function () {
+                    resolve(imageObj);
+                };
+            };
+        });
+    }
+
+    const ops = [
         {
             name: '原始尺寸',
             value: 0,
@@ -79,10 +112,10 @@
             value: 7,
         }
     ]
-    let encoder = 'png'
-    let encoders = ['jpg', 'png', 'gif', 'bmp', 'tiff', 'webp'];
 
-    let pngCompress = [
+    const encoders = ['jpg', 'png', 'gif', 'bmp', 'tiff', 'webp'];
+
+    const pngCompress = [
         {
             name: '默认',
             value: 0,
@@ -101,7 +134,7 @@
         }
     ]
 
-    let frameOps = [
+    const frameOps = [
         {
             name: "不处理",
             value: 0,
@@ -136,37 +169,10 @@
         },
     ]
 
-    async function openFile() {
-        disabled = true;
-
-        try {
-            let pathName = await image.OpenFileDialog();
-            if (pathName.length === 0) {
-                return;
-            }
-
-            loading = true;
-            img = await image.Decode(pathName);
-            imgOpts.width = img.width
-            imgOpts.height = img.height
-            imgOpts.percent = 100
-            imgOpts.savePath = img.path
-
-            changeEncoderOption(encoder)
-        } catch (e) {
-            toast("danger", e.toString())
-        } finally {
-            disabled = false;
-            loading = false;
-        }
-    }
-
     function reset() {
-        imgOpts.width = img.width;
-        imgOpts.height = img.height;
+        imgOpts.width = firstWidth;
+        imgOpts.height = firstHeight;
         imgOpts.percent = 100;
-
-        outputName()
     }
 
     async function openFolder() {
@@ -176,7 +182,7 @@
             const path = await app.OpenDirectoryDialog();
             if (path.length === 0) return;
 
-            imgOpts.savePath = path;
+            imgOpts.outPath = path;
 
         } catch (err) {
             toast("danger", err.toString())
@@ -185,275 +191,223 @@
         }
     }
 
-    function transform() {
+    async function transform() {
         disabled = true;
         loading = true
 
-        image.CropAndSave(imgOpts).then(() => {
-            toast("success", "转换成功");
-        })
-        .catch((err) => {
-            toast("danger", err.toString())
-        })
-        .finally(() => {
+        let files = pond.getFiles();
+        let imgFiles = [];
+        let filesName = '';
+        for (let i = 0; i < files.length; i++) {
+            if (acceptedFileTypes.includes(files[i].file.type)) {
+                imgFiles.push(files[i])
+                filesName += files[i].file.name + ','
+            }
+        }
+
+        if (imgFiles.length === 0) {
+            toast("danger", "没有支持的图片文件")
             disabled = false;
             loading = false;
+            return
+        }
+
+        imgOpts.height = Number(imgOpts.height)
+        imgOpts.width = Number(imgOpts.width)
+        imgOpts.percent = Number(imgOpts.percent)
+        imgOpts.jpgQuality = Number(imgOpts.jpgQuality)
+        imgOpts.gifNumColors = Number(imgOpts.gifNumColors)
+        imgOpts.webpQuality = Number(imgOpts.webpQuality)
+        filesName += Math.round(Math.random() * 10000)
+        let eventName = md5(filesName)
+        for (let i = 0; i < imgFiles.length; i++) {
+            transformFile(imgFiles[i].file, imgFiles.length, eventName)
+        }
+
+        curProgress = 0;
+        showProgress = true;
+        progressClose = EventsOn(eventName, (progress) => {
+            if (progress >= 0) {
+                curProgress = progress;
+            } else {
+                EventsOff(eventName);
+                showProgress = false;
+                disabled = false;
+            }
         })
+
+        disabled = false;
+        loading = false;
     }
 
-    function changeEncoderOption(enc) {
+    function setOptionForEncoder(enc) {
         switch (enc) {
             case 'jpg':
                 imgOpts.jpgQuality = 95
-
-                encoderOptionTitle = '质量'
-                encoderOptionMax = 100
-                encoderOptionMin = 1
                 break
             case 'gif':
                 imgOpts.gifNumColors = 256
                 imgOpts.gifDrawOnBefore = false
                 imgOpts.gifDropRate = 0
-
-                encoderOptionTitle = '色彩数量'
-                encoderOptionMax = 256
-                encoderOptionMin = 1
                 break
             case 'png':
                 imgOpts.pngCompression = 0
-
-                encoderOptionTitle = '压缩等级'
                 break
             case 'webp':
                 imgOpts.webpQuality = 90
                 imgOpts.webpLossless = false
                 imgOpts.webpRgbInTransparent = false
-
-                encoderOptionTitle = '质量'
-                encoderOptionMax = 100
-                encoderOptionMin = 1
         }
-
-        imgOpts.saveName = img.noSuffixName + '-' + imgOpts.width + '-' + imgOpts.height + '-' + imgOpts.percent + '.' + enc
     }
 
-    function clean() {
-        img = {}
-        // image.Clean()
+    function onchangeEncoder(e) {
+        setOptionForEncoder(e.target.value)
+    }
+
+    function transformFile(file, filesNum, eventName) {
+        let reader = new FileReader();
+        reader.onloadend = function (e) {
+            if (e.target.readyState === FileReader.DONE) {
+                let buffer = new Uint8Array(e.target.result);
+                let body = [];
+                for (let i = 0; i < buffer.length; i++) {
+                    body.push(buffer[i]);
+                }
+                let img = new srvs.ImageFile();
+                img.name = file.name
+                img.type = file.type
+                img.body = body
+                image.CropAndSave(img, imgOpts, filesNum, eventName)
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function cleanFiles() {
+        pond.removeFiles();
     }
 
     onDestroy(() => {
-        clean()
+        progressClose();
     })
-
-    function outputName() {
-        imgOpts.saveName = img.noSuffixName + '-' + imgOpts.width + '-' + imgOpts.height + '-' + imgOpts.percent + '.' + encoder
-    }
 </script>
 
-<div class="mt-3">
+<div class="my-3">
     <FilePond bind:this={pond} {name}
         allowMultiple={true}
-        oninit={handleInit}
         onaddfile={handleAddFile}
+        onremovefile={handleRemoveFile}
         acceptedFileTypes={acceptedFileTypes}
         labelFileTypeNotAllowed={'文件类型不支持'}
+        disabled={disabled}
     />
 </div>
 
-<div class="container-fluid">
-    {#if img.name === undefined}
-        <div class="mt-2">
-            <button class="btn btn-outline-secondary" on:click={openFile} class:disabled={disabled}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16">
-                    <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
-                </svg>
-                选择图片
-            </button>
-        </div>
-    {/if}
-
-    {#if img.name !== undefined}
-    <div class="card mt-2 position-relative" style="width: {img.thumbWidth}px; min-width: 30%; mex-width: 100%;">
-        <div on:click={clean} class="position-absolute top-0 end-0 bg-secondary opacity-75 text-warning">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-trash3" viewBox="0 0 16 16">
-                <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5ZM11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H2.506a.58.58 0 0 0-.01 0H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1h-.995a.59.59 0 0 0-.01 0H11Zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5h9.916Zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47ZM8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5Z"/>
-            </svg>
-        </div>
-        <img src="data:image/png;base64,{img.thumbnail}" class="card-img-top border" style="max-width: {img.thumbWidth}px;" alt="...">
-        <div class="card-body">
-            <h5 class="card-title">{img.name} {img.size}</h5>
-            <p class="card-text">
-                format: {img.format}&nbsp;&nbsp; wh: {img.width} * {img.height}
-                {#if img.format === 'GIF'}<br/> frames: {img.frames}{/if}
-<!--                thumb size: {img.thumbWidth} * {img.thumbHeight} <br/>-->
-            </p>
-        </div>
+{#if showProgress }
+    <div class="mb-3">
+        <Progressbar bind:progress={curProgress} size="h-4" labelInside />
     </div>
+{/if}
 
-    <div class="col-md-auto mt-2 input-group input-group-sm">
-        <span class="input-group-text">缩略方式</span>
-        <select bind:value={imgOpts.op} id="op" class="form-select" disabled={disabled}>
-            {#each ops as d}
-                <option value={d.value}>{d.name}</option>
-            {/each}
-        </select>
+{#if filesNum > 0 }
+    <div class="mb-3 flex">
+        <InputAddon class="flex-shrink-0">缩略方式</InputAddon>
+        <Select size="sm" items={ops} bind:value={imgOpts.op} class="!rounded-l-none" disabled={disabled}/>
     </div>
 
     {#if imgOpts.op > 0 && imgOpts.op < 7}
-        <div class="input-group mt-2 input-group-sm">
+        <div class="mb-3 grid gap-1 md:grid-cols-2">
             {#if imgOpts.op < 5}
-            <span class="input-group-text">宽</span>
-            <input bind:value={imgOpts.width} on:change={outputName} type="number" class="form-control" disabled={disabled}>
-            <span class="input-group-text">px</span>
+                <ButtonGroup>
+                    <InputAddon>宽</InputAddon>
+                    <Input size="sm" bind:value={imgOpts.width} type="number" disabled={disabled}  />
+                    <InputAddon>px</InputAddon>
+                </ButtonGroup>
             {/if}
             {#if imgOpts.op > 2}
-            <span class="input-group-text">高</span>
-            <input bind:value={imgOpts.height} on:change={outputName} type="number" class="form-control" disabled={disabled}>
-            <span class="input-group-text">px</span>
+                <ButtonGroup>
+                    <InputAddon>高</InputAddon>
+                    <Input size="sm" bind:value={imgOpts.height} type="number" disabled={disabled}  />
+                    <InputAddon>px</InputAddon>
+                </ButtonGroup>
             {/if}
         </div>
     {/if}
 
     {#if imgOpts.op === 7}
-        <div class="input-group mt-2 input-group-sm">
-            <span class="input-group-text">缩放百分比</span>
-            <input bind:value={imgOpts.percent} on:change={outputName} type="number" class="form-control" disabled={disabled}>
-            <span class="input-group-text">%</span>
+        <div class="mb-3">
+            <ButtonGroup class="w-full">
+                <InputAddon class="flex-shrink-0">缩放百分比</InputAddon>
+                <Input size="sm" bind:value={imgOpts.percent} type="number" disabled={disabled}  />
+                <InputAddon>%</InputAddon>
+            </ButtonGroup>
         </div>
     {/if}
 
-    <div class="mt-2 d-flex flex-wrap">
-        保存格式：&nbsp;
+    <div class="mb-3 flex flex-wrap gap-4">
+        <Label>保存格式:</Label>
         {#each encoders as e}
-            <div class="form-check form-check-inline">
-                <input
-                    on:change={(event) => {changeEncoderOption(event.target.value)}}
-                    bind:group={encoder}
-                    class="form-check-input"
-                    type="radio"
-                    id={e}
-                    value={e}
-                />
-                <label class="form-check-label" for={e}>{e}</label>
-            </div>
+            <Radio value={e} bind:group={imgOpts.encoder} on:change={onchangeEncoder}>{e}</Radio>
         {/each}
     </div>
 
-    {#if encoder === 'jpg'}
-        <div class="row mt-2">
-            <label for="optionRange" class="col-form-label col-auto">{encoderOptionTitle}</label>
-            <div class="col-auto">
-                <input bind:value={imgOpts.jpgQuality} type="range" class="form-range form-range-sm" min="{encoderOptionMin}" max="{encoderOptionMax}" disabled={disabled}>
-            </div>
-            <div class="col-auto">
-                <input bind:value={imgOpts.jpgQuality} type="number" max="{encoderOptionMax}" min="{encoderOptionMin}" step="1" class="form-control form-control-sm" disabled={disabled}>
-            </div>
+    {#if imgOpts.encoder === 'jpg'}
+        <div class="flex mb-3 gap-2 items-center">
+            <Label>质量:</Label>
+            <Range class="w-auto" bind:value={imgOpts.jpgQuality} min="1" max="100" disabled={disabled} />
+            <Input class="w-fit" bind:value={imgOpts.jpgQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
         </div>
-    {:else if encoder === 'gif'}
-        <div class="row mt-2">
-            <label for="optionRange" class="col-form-label col-auto">{encoderOptionTitle}</label>
-            <div class="col-auto">
-                <input bind:value={imgOpts.gifNumColors} type="range" class="form-range form-range-sm" min="{encoderOptionMin}" max="{encoderOptionMax}" disabled={disabled}>
-            </div>
-            <div class="col-auto">
-                <input bind:value={imgOpts.gifNumColors} type="number" max="{encoderOptionMax}" min="{encoderOptionMin}" step="1" class="form-control form-control-sm" disabled={disabled}>
-            </div>
+    {:else if imgOpts.encoder === 'gif'}
+        <div class="flex mb-3 gap-2 items-center">
+            <Label>色彩数量:</Label>
+            <Range class="w-auto" bind:value={imgOpts.gifNumColors} min="1" max="256" disabled={disabled} />
+            <Input class="w-fit" bind:value={imgOpts.gifNumColors} size="sm" type="number" min="1" max="256" disabled={disabled} />
         </div>
-    {:else if encoder === 'webp'}
-        <div class="row mt-2">
-            <label for="optionRange" class="col-form-label col-auto">{encoderOptionTitle}</label>
-            <div class="col-auto">
-                <input bind:value={imgOpts.webpQuality} type="range" class="form-range form-range-sm" min="{encoderOptionMin}" max="{encoderOptionMax}" id="optionRange" disabled={disabled}>
-            </div>
-            <div class="col-auto">
-                <input bind:value={imgOpts.webpQuality} type="number" max="{encoderOptionMax}" min="{encoderOptionMin}" step="1" class="form-control form-control-sm" disabled={disabled}>
-            </div>
-            <div class="form-check col-auto">
-                <input class="form-check-input" type="checkbox" bind:checked={imgOpts.webpLossless}  disabled={disabled}>
-                <label class="form-check-label">
-                    无损
-                </label>
-            </div>
+        <div class="row mb-3 flex gap-2 items-center">
+            <ButtonGroup class="w-auto">
+                <InputAddon class="flex-shrink-0">抽帧</InputAddon>
+                <Select size="sm" items={frameOps} bind:value={imgOpts.gifDropRate} class="!rounded-l-none" disabled={disabled}/>
+            </ButtonGroup>
+            <Checkbox bind:checked={imgOpts.gifDrawOnBefore}  disabled={disabled}>前一帧上绘制</Checkbox>
+            <Label>(仅对原始图片为gif时有效)</Label>
         </div>
-    {:else if encoder === 'png'}
-        <div class="mt-2 d-flex flex-wrap">
-            {encoderOptionTitle}: &nbsp;
-            {#each pngCompress as cp}
-                <div class="form-check form-check-inline">
-                    <input
-                        bind:group={imgOpts.pngCompression}
-                        class="form-check-input"
-                        type="radio"
-                        name="opt"
-                        id={cp.value}
-                        value={cp.value}
-                        disabled={disabled}
-                    />
-                    <label class="form-check-label" for={cp.value}>{cp.name}</label>
-                </div>
+    {:else if imgOpts.encoder === 'webp'}
+        <div class="flex mb-3 gap-2 items-center">
+            <Label>质量:</Label>
+            <Range class="w-auto" bind:value={imgOpts.webpQuality} min="1" max="100" disabled={disabled} />
+            <Input class="w-fit" bind:value={imgOpts.webpQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
+            <Checkbox bind:checked={imgOpts.webpLossless}  disabled={disabled}>无损</Checkbox>
+        </div>
+    {:else if imgOpts.encoder === 'png'}
+        <div class="mb-3 flex flex-wrap gap-4">
+            <Label>压缩等级:</Label>
+            {#each pngCompress as pc}
+                <Radio value={pc.value} bind:group={imgOpts.pngCompression} disabled={disabled}>{pc.name}</Radio>
             {/each}
         </div>
     {/if}
 
-    {#if img.format === 'GIF' && img.frames > 1 && encoder === 'gif'}
-        <div class="row mt-2">
-            <div class="input-group input-group-sm col">
-                <span class="input-group-text">抽帧</span>
-                <select bind:value={imgOpts.gifDropRate} id="frameOp" class="form-select" disabled={disabled}>
-                    {#each frameOps as d}
-                        <option value={d.value}>{d.name}</option>
-                    {/each}
-                </select>
-            </div>
-            <div class="form-check col">
-                <input class="form-check-input" type="checkbox" bind:checked={imgOpts.gifDrawOnBefore} id="flexCheckDefault" disabled={disabled}>
-                <label class="form-check-label" for="flexCheckDefault">
-                    前一帧上绘制
-                </label>
-            </div>
-        </div>
-    {/if}
-
-    <div class="mt-2 input-group input-group-sm">
-        <button
-            on:click={openFolder}
-            disabled={disabled}
-            type="button"
-            class="btn btn-outline-secondary btn-sm"
-        >
-            选择保存目录
-        </button>
-        <input type="text" bind:value={imgOpts.savePath} disabled  class="form-control">
-    </div>
-    <div class="mt-2 input-group input-group-sm">
-        <span class="input-group-text">保存文件名</span>
-        <input type="text" bind:value={imgOpts.saveName} disabled={disabled}  class="form-control">
+    <div class="mb-3">
+        <ButtonGroup class="w-full">
+            <Button class="flex-shrink-0" color="green" on:click={openFolder} disabled={disabled}>
+                选择保存目录
+            </Button>
+            <Input size="sm" bind:value={imgOpts.outPath} disabled/>
+        </ButtonGroup>
     </div>
 
-    <div class="mt-2">
-        <button
-            on:click={transform}
-            type="button"
-            class="btn btn-outline-primary btn-sm"
-            class:disabled={!(!disabled && img.name !== undefined)}
-        >
-        {#if loading}
-            <span
-                    class="spinner-border spinner-border-sm text-primary"
-                    role="status"
-                    aria-hidden="true"
-            />
-        {/if}
+    <div class="mb-3">
+        <Button outline color="blue" size="xs" on:click={transform} disabled={!(!disabled && filesNum > 0)}>
+            {#if loading}
+                <Spinner size="4" class="mr-3"/>
+            {/if}
             转换
-        </button>
-        <button
-                on:click={reset}
-                class:disabled={!(!disabled && img.name !== undefined)}
-                type="button"
-                class="btn btn-outline-warning btn-sm">
-            恢复默认宽高
-        </button>
+        </Button>
+        <Button outline color="dark" size="xs" on:click={reset}  disabled={!(!disabled && filesNum > 0)}>
+            {#if filesNum < 2}恢复默认宽高{:else}采用首图宽高{/if}
+        </Button>
+        <Button outline color="yellow" size="xs" on:click={cleanFiles} disabled={!(!disabled && filesNum > 0)}>
+            清空选中文件
+        </Button>
     </div>
-    {/if}
-</div>
+{/if}

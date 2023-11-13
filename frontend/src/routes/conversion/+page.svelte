@@ -68,7 +68,7 @@
 
 <div class="mb-3">
     <Label>待转换数字</Label>
-    <Input bind:value={inNo} />
+    <Input size="sm" bind:value={inNo} />
 </div>
 
 <div class="mb-3 flex flex-wrap gap-3">
@@ -84,5 +84,5 @@
 
 <div>
     <Label>转换结果</Label>
-    <Input bind:value={outNo} />
+    <Input size="sm" bind:value={outNo} />
 </div>

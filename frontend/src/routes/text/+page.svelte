@@ -268,7 +268,7 @@
 {#if showSecret || (showHmac && checkHmac)}
     <div class="mb-3">
         <Label for="secretKey">密钥</Label>
-        <Input type="text" bind:value={secretKey} id="secretKey" />
+        <Input size="sm" type="text" bind:value={secretKey} id="secretKey" />
     </div>
 {/if}
 

@@ -1,5 +1,21 @@
 export namespace srvs {
 	
+	export class ImageFile {
+	    name: string;
+	    type: string;
+	    body: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new ImageFile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.type = source["type"];
+	        this.body = source["body"];
+	    }
+	}
 	export class ImageInfo {
 	    name: string;
 	    format: string;
@@ -34,8 +50,8 @@ export namespace srvs {
 	}
 	export class ImageOptions {
 	    op: number;
-	    savePath: string;
-	    saveName: string;
+	    encoder: string;
+	    outPath: string;
 	    width: number;
 	    height: number;
 	    percent: number;
@@ -55,8 +71,8 @@ export namespace srvs {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.op = source["op"];
-	        this.savePath = source["savePath"];
-	        this.saveName = source["saveName"];
+	        this.encoder = source["encoder"];
+	        this.outPath = source["outPath"];
 	        this.width = source["width"];
 	        this.height = source["height"];
 	        this.percent = source["percent"];
