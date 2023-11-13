@@ -22,6 +22,10 @@ import (
 	"github.com/skip2/go-qrcode"
 	dqr "github.com/tuotoo/qrcode"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/welllog/golib/goz"
+	"github.com/welllog/golib/mapz"
+	"github.com/welllog/golib/randz"
+	"github.com/welllog/golib/strz"
 	"github.com/welllog/olog"
 	"github.com/welllog/otool/internal/errx"
 	_ "golang.org/x/image/bmp"
@@ -43,10 +47,16 @@ type ImageInfo struct {
 	NoSuffixName string `json:"noSuffixName"`
 }
 
+type ImageFile struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+	Body []byte `json:"body"`
+}
+
 type ImageOptions struct {
 	Op                   int    `json:"op"`
-	SavePath             string `json:"savePath"`
-	SaveName             string `json:"saveName"`
+	Encoder              string `json:"encoder"`
+	OutPath              string `json:"outPath"`
 	Width                int    `json:"width"`
 	Height               int    `json:"height"`
 	Percent              int    `json:"percent"`
@@ -72,11 +82,9 @@ const (
 )
 
 type Image struct {
-	Ctx      context.Context
-	cache    image.Image
-	gifCache *gif.GIF
-	format   string
-	pathName string
+	Ctx context.Context
+	Gow *goz.Limiter
+	Kv  *mapz.SafeKV[string, any]
 }
 
 func (i *Image) OpenFileDialog() (string, error) {
@@ -118,7 +126,6 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 			return nil, errx.Log(err)
 		}
 		img = gifImg.Image[0]
-		i.gifCache = gifImg
 		frames = len(gifImg.Image)
 	} else {
 		img, err = decode(f)
@@ -126,10 +133,6 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 			return nil, errx.Log(err)
 		}
 	}
-
-	i.cache = img
-	i.format = format
-	i.pathName = pathName
 
 	maxWidth := 400
 	maxHeight := 320
@@ -162,78 +165,162 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 	}, nil
 }
 
-func (i *Image) CropAndSave(opts ImageOptions) error {
-	savePathName := filepath.Join(opts.SavePath, opts.SaveName)
+func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eventName string) (bool, error) {
+	var record *taskRecord
+	var first bool
+	i.Kv.Map(func(m map[string]any) {
+		r, ok := m[eventName]
+		if ok {
+			record = r.(*taskRecord)
+		} else {
+			record = &taskRecord{
+				progress: countProgress{count: 3 * filesNum, event: eventName, ctx: i.Ctx},
+				errCh:    make(chan error, filesNum),
+				name:     file.Name + "...",
+			}
+			record.done.Add(filesNum)
+			m[eventName] = record
+			first = true
+		}
+	})
 
-	_, err := os.Stat(savePathName)
-	if err == nil || errors.Is(err, fs.ErrExist) {
-		return errx.Logf("file already exists: %s", savePathName)
-	}
+	i.Gow.Go(func() {
+		defer record.done.Done()
 
-	olog.Debugf("crop image options: %+v", &opts)
-
-	format, _ := formatFromFilename(opts.SaveName)
-	if format == i.format && format == imaging.GIF.String() && len(i.gifCache.Image) > 1 {
-		img := cropGif(i.gifCache, &opts)
-
-		of, err := os.Create(savePathName)
+		outputName := outImageName(file.Name, opts)
+		of, err := os.Create(outputName)
 		if err != nil {
-			return errx.Log(err)
+			record.errCh <- err
+			notify(i.Ctx, NotifyEvent{
+				Info: fmt.Sprintf("创建文件%s失败: %s", outputName, err.Error()),
+				Type: "danger",
+			})
+			return
 		}
 
-		defer of.Close()
+		defer func() {
+			_ = of.Close()
+			if err != nil {
+				record.errCh <- err
+				_ = os.Remove(outputName)
+			}
+		}()
 
-		return errx.Log(gif.EncodeAll(of, img))
+		var img image.Image
+		if file.Type == "image/gif" && opts.Encoder == "gif" {
+			var gifImg *gif.GIF
+			gifImg, err = gif.DecodeAll(bytes.NewReader(file.Body))
+			if err != nil {
+				notify(i.Ctx, NotifyEvent{
+					Info: fmt.Sprintf("解码%s失败: %s", file.Name, err.Error()),
+					Type: "danger",
+				})
+				return
+			}
+			record.progress.Incr()
+
+			if len(gifImg.Image) > 1 {
+				gifImg = cropGif(gifImg, &opts)
+				record.progress.Incr()
+
+				err = gif.EncodeAll(of, gifImg)
+				if err != nil {
+					notify(i.Ctx, NotifyEvent{
+						Info: fmt.Sprintf("编码%s失败: %s", file.Name, err.Error()),
+						Type: "danger",
+					})
+					return
+				}
+
+				record.progress.Incr()
+				return
+			}
+			img = gifImg.Image[0]
+		} else {
+			img, err = decode(bytes.NewReader(file.Body))
+			if err != nil {
+				notify(i.Ctx, NotifyEvent{
+					Info: fmt.Sprintf("解码%s失败: %s", file.Name, err.Error()),
+					Type: "danger",
+				})
+				return
+			}
+
+			record.progress.Incr()
+		}
+
+		img = crop(img, &opts)
+		record.progress.Incr()
+
+		switch opts.Encoder {
+		case "jpg":
+			err = imaging.Save(img, outputName, imaging.JPEGQuality(opts.JpgQuality))
+		case "png":
+			err = imaging.Save(img, outputName, imaging.PNGCompressionLevel(png.CompressionLevel(opts.PngCompression)))
+		case "gif":
+			err = imaging.Save(img, outputName, imaging.GIFNumColors(opts.GifNumColors))
+		case "webp":
+			err = webp.Save(outputName, img, &webp.Options{Lossless: opts.WebpLossless, Quality: float32(opts.WebpQuality), Exact: opts.WebpRgbInTransparent})
+		default:
+			err = imaging.Save(img, outputName)
+		}
+		if err != nil {
+			notify(i.Ctx, NotifyEvent{
+				Info: fmt.Sprintf("编码%s失败: %s", file.Name, err.Error()),
+				Type: "danger",
+			})
+			return
+		}
+
+		record.progress.Incr()
+	})
+
+	if first {
+		i.Gow.Go(func() {
+			record.done.Wait()
+			i.Kv.Delete(record.progress.event)
+			if len(record.errCh) == 0 {
+				notify(i.Ctx, NotifyEvent{
+					Info: fmt.Sprintf("%s处理全部完成", record.name),
+					Type: "success",
+				})
+			} else if len(record.errCh) == filesNum {
+				notify(i.Ctx, NotifyEvent{
+					Info: fmt.Sprintf("%s处理全部失败", record.name),
+					Type: "danger",
+				})
+			} else {
+				notify(i.Ctx, NotifyEvent{
+					Info: fmt.Sprintf("%s处理部分失败", record.name),
+					Type: "warning",
+				})
+			}
+			record.progress.close()
+		})
 	}
 
-	img := crop(i.cache, &opts)
-	var saveOpts []imaging.EncodeOption
-	switch format {
-	case imaging.JPEG.String():
-		saveOpts = append(saveOpts, imaging.JPEGQuality(opts.JpgQuality))
-	case imaging.PNG.String():
-		saveOpts = append(saveOpts, imaging.PNGCompressionLevel(png.CompressionLevel(opts.PngCompression)))
-	case imaging.GIF.String():
-		saveOpts = append(saveOpts, imaging.GIFNumColors(opts.GifNumColors))
-	case "WEBP":
-		return errx.Log(webp.Save(savePathName, img, &webp.Options{Lossless: opts.WebpLossless, Quality: float32(opts.WebpQuality), Exact: opts.WebpRgbInTransparent}))
-	}
-	return errx.Log(imaging.Save(img, savePathName, saveOpts...))
+	return first, nil
 }
 
-func (i *Image) Clean() {
-	olog.Debugf("clean: %s", i.pathName)
-
-	i.cache = nil
-	i.gifCache = nil
-	i.format = ""
-	i.pathName = ""
-}
-
-func (i *Image) QrEncode(text, savePath, saveName string, recover, size int) error {
+func (i *Image) QrEncode(text, savePath string, recover, size int) (string, error) {
+	saveName := fmt.Sprintf("%s_%s_%d_%d.png", fileName(strz.Sub(text, 0, 10)), randz.String(5), recover, size)
 	savePathName := filepath.Join(savePath, saveName)
 
 	_, err := os.Stat(savePathName)
 	if err == nil || errors.Is(err, fs.ErrExist) {
-		return errx.Logf("file already exists: %s", savePathName)
+		return "", errx.Logf("file already exists: %s", savePathName)
 	}
 
 	b, err := qrcode.Encode(text, qrcode.RecoveryLevel(recover), size)
 	if err != nil {
-		return errx.Log(err)
-	}
-
-	return errx.Log(os.WriteFile(savePathName, b, 0644))
-}
-
-func (i *Image) QrDecode(pathName string) (string, error) {
-	f, err := os.Open(pathName)
-	if err != nil {
 		return "", errx.Log(err)
 	}
-	defer f.Close()
 
-	m, err := dqr.Decode(f)
+	return saveName, errx.Log(os.WriteFile(savePathName, b, 0644))
+}
+
+func (i *Image) QrDecode(b []byte) (string, error) {
+	m, err := dqr.Decode(bytes.NewReader(b))
 	if err != nil {
 		return "", errx.Log(err)
 	}
@@ -386,4 +473,8 @@ func prettySize(size int64) string {
 	}
 
 	return fmt.Sprintf("%.2f", float64(size)/float64(_gb)) + "GB"
+}
+
+func outImageName(name string, opts ImageOptions) string {
+	return filepath.Join(opts.OutPath, fmt.Sprintf("%s_%d_%s.%s", name, opts.Op, randz.String(4), opts.Encoder))
 }

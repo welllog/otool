@@ -5,7 +5,11 @@ import (
 	"os"
 	"path/filepath"
 
+	stdrt "runtime"
+
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/welllog/golib/goz"
+	"github.com/welllog/golib/mapz"
 	"github.com/welllog/golib/randz"
 	"github.com/welllog/otool/internal/errx"
 	"github.com/welllog/otool/internal/srvs"
@@ -15,16 +19,19 @@ import (
 type App struct {
 	version    string
 	ctx        context.Context
+	gow        *goz.Limiter
 	EncryptSrv *srvs.Encrypt
 	ImageSrv   *srvs.Image
 }
 
 // NewApp creates a new App application struct
 func NewApp(version string) *App {
+	gow := goz.NewLimiter(stdrt.GOMAXPROCS(0))
 	return &App{
 		version:    version,
-		EncryptSrv: &srvs.Encrypt{},
-		ImageSrv:   &srvs.Image{},
+		gow:        gow,
+		EncryptSrv: &srvs.Encrypt{Gow: gow},
+		ImageSrv:   &srvs.Image{Gow: gow, Kv: mapz.NewSafeKV[string, any](10)},
 	}
 }
 
@@ -33,6 +40,11 @@ func NewApp(version string) *App {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	a.ImageSrv.Ctx = ctx
+	a.EncryptSrv.Ctx = ctx
+}
+
+func (a *App) OnShutdown(ctx context.Context) {
+	a.gow.Wait()
 }
 
 func (a *App) OpenFileDialog() (string, error) {

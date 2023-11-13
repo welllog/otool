@@ -1,17 +1,31 @@
 <script>
-    import * as enc from "$wailsjs/go/srvs/encrypt.js";
-    import { showAlert, closeAlert } from "../Alert.svelte";
+    import * as enc from "wjs/go/srvs/encrypt.js";
+    import { toast } from "$lib/ToastContainer.svelte";
+    import Label from "$lib/Label.svelte";
+    import { Textarea , Radio, Checkbox, Input, Button } from "flowbite-svelte";
 
     let showSecret = false;
     let showHmac = false, checkHmac = false;
-    let inputText, opt, secretKey, outputText;
+    let inputText = '', opt = '', secretKey = '', outputText = '';
     let inputLen = 0,
         outputLen = 0;
 
-    function transform() {
-        closeAlert();
-        inputLen = inputText.length;
+    $: inputLen = inputText.length;
+    $: outputLen = outputText.length;
+    $: {
+        if (opt === 'opensslAesEnc' || opt === 'opensslAesDec') {
+            showSecret = true;
+            showHmac = false;
+        } else if (isHash(opt)) {
+            showSecret = false;
+            showHmac = true;
+        } else {
+            showSecret = false;
+            showHmac = false;
+        }
+    }
 
+    function transform() {
         let res;
         if (showHmac && checkHmac) {
             res = enc.Hmac(inputText, secretKey, opt);
@@ -61,11 +75,9 @@
                     break;
                 case "upper":
                     outputText = inputText.toUpperCase();
-                    outputLen = outputText.length;
                     return;
                 case "lower":
                     outputText = inputText.toLowerCase();
-                    outputLen = outputText.length;
                     return;
                 case "md5":
                     res = enc.Md5(inputText);
@@ -92,7 +104,7 @@
                     res = enc.Sha512_256(inputText);
                     break;
                 default:
-                    showAlert("warning", "未知操作");
+                    toast('danger', '未知操作');
                     return;
             }
         }
@@ -100,10 +112,9 @@
         res
             .then((res) => {
                 outputText = res;
-                outputLen = outputText.length;
             })
             .catch((err) => {
-                showAlert("danger", err.toString());
+                toast('danger', err.toString());
             });
     }
 
@@ -111,29 +122,13 @@
         inputText = outputText;
     }
 
-    function toggleSecret(e) {
-        if (["opensslAesEnc", "opensslAesDec"].indexOf(e.target.value) >= 0) {
-            showSecret = true;
-            showHmac = false;
-            return;
-        }
-        showSecret = false;
-        if (isHash(e.target.value)) {
-            showHmac = true;
-        } else {
-            showHmac = false;
-        }
-    }
-
     function clean() {
         inputText = "";
         outputText = "";
         secretKey = "";
-        inputLen = 0;
-        outputLen = 0;
     }
 
-    function isHash(op) {
+    function isHash(op = '') {
         return ["md5", "sha1", "sha224", "sha256", "sha384", "sha512", "sha512_224", "sha512_256"].indexOf(op) >= 0;
     }
 
@@ -240,99 +235,60 @@
     ];
 </script>
 
-<div class="container-fluid">
-    <div class="mb-3 mt-3">
-        <label for="inputText" class="form-label">编解码文本</label>
-        <textarea
-            bind:value={inputText}
-            class="form-control"
-            id="inputText"
-            rows="3"
-            aria-describedby="inputHelp"
-        />
-        {#if inputLen > 0}
-            <div id="inputHelp" class="form-text">
-                <span class="text-danger">{inputLen}</span> chars
-            </div>
+<div class="mb-3 mt-1">
+    <Label for="inputText">编解码文本</Label>
+    <Textarea id="inputText" bind:value={inputText}>
+        <div slot="footer" class="text-xs text-gray-500 dark:text-gray-100" >
+            <span class="text-red-500 dark:text-red-500">{inputLen}</span> chars
+        </div>
+    </Textarea>
+</div>
+
+<div class="mb-3">
+    <Label>编码</Label>
+    <div class="flex flex-wrap gap-3">
+        {#each encOpts as encOpt}
+            <Radio value={encOpt.value} bind:group={opt}>{encOpt.name}</Radio>
+        {/each}
+        {#if showHmac}
+            <Checkbox bind:checked={checkHmac}>hmac</Checkbox>
         {/if}
     </div>
-    编码：
-    {#each encOpts as encOpt}
-        <div class="form-check form-check-inline">
-            <input
-                on:change={toggleSecret}
-                bind:group={opt}
-                class="form-check-input"
-                type="radio"
-                name="opt"
-                id={encOpt.value}
-                value={encOpt.value}
-            />
-            <label class="form-check-label" for={encOpt.value}>{encOpt.name}</label>
-        </div>
-    {/each}
-    {#if showHmac}
-        <div class="form-check form-check-inline">
-            <input
-                class="form-check-input"
-                type="checkbox"
-                id="hmac"
-                bind:checked={checkHmac}
-            />
-            <label class="form-check-label" for="hmac">hmac</label>
-        </div>
-    {/if}
-    <hr />
-    解码：
-    {#each decOpts as decOpt}
-        <div class="form-check form-check-inline">
-            <input
-                on:change={toggleSecret}
-                bind:group={opt}
-                class="form-check-input"
-                type="radio"
-                name="opt"
-                id={decOpt.value}
-                value={decOpt.value}
-            />
-            <label class="form-check-label" for={decOpt.value}>{decOpt.name}</label>
-        </div>
-    {/each}
-    <hr />
-    {#if showSecret || (showHmac && checkHmac)}
-        <div class="mb-3">
-            <label for="secretKey" class="form-label">密钥</label>
-            <input bind:value={secretKey} class="form-control" id="secretKey" />
-        </div>
-    {/if}
-    <button
-        on:click={transform}
-        type="button"
-        class="btn btn-outline-primary btn-sm mb-3">转换</button
-    >
-    <button
-        on:click={replaceInput}
-        type="button"
-        class="btn btn-outline-secondary btn-sm mb-3">输入替换</button
-    >
-    <button
-        on:click={clean}
-        type="button"
-        class="btn btn-outline-warning btn-sm mb-3">清空</button
-    >
-    <div>
-        <label for="outputText" class="form-label">输出文本</label>
-        <textarea
-            bind:value={outputText}
-            class="form-control"
-            id="outputText"
-            rows="3"
-            aria-describedby="outputHelp"
-        />
-        {#if outputLen > 0}
-            <div id="outputHelp" class="form-text">
-                <span class="text-danger">{outputLen}</span> chars
-            </div>
-        {/if}
+</div>
+
+<div class="mb-3">
+    <Label>解码</Label>
+    <div class="flex flex-wrap gap-3">
+        {#each decOpts as decOpt}
+            <Radio value={decOpt.value} bind:group={opt}>{decOpt.name}</Radio>
+        {/each}
     </div>
+</div>
+
+{#if showSecret || (showHmac && checkHmac)}
+    <div class="mb-3">
+        <Label for="secretKey">密钥</Label>
+        <Input size="sm" type="text" bind:value={secretKey} id="secretKey" />
+    </div>
+{/if}
+
+<div class="mb-3">
+    <Button on:click={transform} outline color="blue" size="xs">
+        转换
+    </Button>
+    <Button on:click={replaceInput} outline color="dark" size="xs">
+        输入替换
+    </Button>
+    <Button on:click={clean} outline color="yellow" size="xs">
+        清空
+    </Button>
+</div>
+
+<div>
+    <Label for="outputText">输出文本</Label>
+    <Textarea id="outputText" bind:value={outputText}>
+        <div slot="footer" class="text-xs text-gray-500 dark:text-gray-100" >
+            <span class="text-red-500 dark:text-red-500">{outputLen}</span> chars
+        </div>
+    </Textarea>
 </div>

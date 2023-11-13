@@ -43,5 +43,3 @@ require (
 	golang.org/x/text v0.10.0 // indirect
 	rsc.io/qr v0.2.0 // indirect
 )
-
-// replace github.com/wailsapp/wails/v2 v2.4.1 => /Users/chentairen/Desktop/code/go/pkg/mod

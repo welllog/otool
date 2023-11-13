@@ -1,5 +1,8 @@
 <script>
-    let inNo = 0, outNo = 0, inDecimal = 10, outDecimal = 10;
+    import Label from "$lib/Label.svelte";
+    import { Radio, Select, Input, Button } from "flowbite-svelte";
+
+    let inNo = '0', outNo = '0', inDecimal = 10, outDecimal = 10;
 
     function transform() {
         let n = parseInt(inNo, inDecimal)
@@ -16,53 +19,70 @@
         {name: '三十六进制', value: 36},
     ];
 
-    let decimals = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-        22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36];
+    let decimals = [
+        { value: 2, name: '二进制' },
+        { value: 3, name: '三进制' },
+        { value: 4, name: '四进制' },
+        { value: 5, name: '五进制' },
+        { value: 6, name: '六进制' },
+        { value: 7, name: '七进制' },
+        { value: 8, name: '八进制' },
+        { value: 9, name: '九进制' },
+        { value: 10, name: '十进制' },
+        { value: 11, name: '十一进制' },
+        { value: 12, name: '十二进制' },
+        { value: 13, name: '十三进制' },
+        { value: 14, name: '十四进制' },
+        { value: 15, name: '十五进制' },
+        { value: 16, name: '十六进制' },
+        { value: 17, name: '十七进制' },
+        { value: 18, name: '十八进制' },
+        { value: 19, name: '十九进制' },
+        { value: 20, name: '二十进制' },
+        { value: 21, name: '二十一进制' },
+        { value: 22, name: '二十二进制' },
+        { value: 23, name: '二十三进制' },
+        { value: 24, name: '二十四进制' },
+        { value: 25, name: '二十五进制' },
+        { value: 26, name: '二十六进制' },
+        { value: 27, name: '二十七进制' },
+        { value: 28, name: '二十八进制' },
+        { value: 29, name: '二十九进制' },
+        { value: 30, name: '三十进制' },
+        { value: 31, name: '三十一进制' },
+        { value: 32, name: '三十二进制' },
+        { value: 33, name: '三十三进制' },
+        { value: 34, name: '三十四进制' },
+        { value: 35, name: '三十五进制' },
+        { value: 36, name: '三十六进制' },
+    ];
 
 </script>
 
-<div class="container-fluid">
-    <div class="row mt-3 mb-3">
-        <div class="col-auto">
-            {#each decimalOpts as opt}
-                <div class="form-check form-check-inline">
-                    <input bind:group={inDecimal} class="form-check-input" type="radio" name="inDecimal" id="in{opt.value}" value={opt.value}>
-                    <label class="form-check-label" for="in{opt.value}">{opt.name}</label>
-                </div>
-            {/each}
-        </div>
-        <div class="col-auto">
-            <select bind:value={inDecimal} id="inDecimal" class="form-select form-select-sm">
-                {#each decimals as d}
-                    <option value={d}>{d}</option>
-                {/each}
-            </select>
-        </div>
-    </div>
-    <div class="mb-3 form-floating">
-        <input bind:value={inNo} type="text" class="form-control" id="inNo">
-        <label for="inNo" class="form-label">待转换数字</label>
-    </div>
-    <div class="row mb-3">
-        <div class="col-auto">
-            {#each decimalOpts as opt}
-                <div class="form-check form-check-inline">
-                    <input bind:group={outDecimal} class="form-check-input" type="radio" name="outDecimal" id="out{opt.value}" value={opt.value}>
-                    <label class="form-check-label" for="out{opt.value}">{opt.name}</label>
-                </div>
-            {/each}
-        </div>
-        <div class="col-auto">
-            <select bind:value={outDecimal} id="outDecimal" class="form-select form-select-sm">
-                {#each decimals as d}
-                    <option value={d}>{d}</option>
-                {/each}
-            </select>
-        </div>
-    </div>
-    <button on:click={transform} type="button" class="btn btn-outline-primary btn-sm mb-3">转换</button>
-    <div class="form-floating">
-        <input bind:value={outNo} type="text" class="form-control" id="outNo">
-        <label for="outNo" class="form-label">转换结果</label>
-    </div>
+<div class="mb-3 mt-3 flex flex-wrap gap-3">
+    {#each decimalOpts as opt}
+        <Radio value={opt.value} bind:group={inDecimal}>{opt.name}</Radio>
+    {/each}
+    <Select size="sm" class="w-fit" items={decimals} bind:value={inDecimal} />
+</div>
+
+<div class="mb-3">
+    <Label>待转换数字</Label>
+    <Input size="sm" bind:value={inNo} />
+</div>
+
+<div class="mb-3 flex flex-wrap gap-3">
+    {#each decimalOpts as opt}
+        <Radio value={opt.value} bind:group={outDecimal}>{opt.name}</Radio>
+    {/each}
+    <Select size="sm" class="w-fit" items={decimals} bind:value={outDecimal} />
+</div>
+
+<div class="mb-3">
+    <Button on:click={transform} color="blue" outline size="xs">转换</Button>
+</div>
+
+<div>
+    <Label>转换结果</Label>
+    <Input size="sm" bind:value={outNo} />
 </div>

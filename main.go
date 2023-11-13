@@ -2,6 +2,7 @@ package main
 
 import (
 	"embed"
+	"runtime"
 
 	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
@@ -15,7 +16,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 )
 
-const version = "v0.0.3"
+const version = "v0.1.0"
 
 //go:embed all:frontend/build
 var assets embed.FS
@@ -29,9 +30,9 @@ func main() {
 	err := wails.Run(&options.App{
 		Width:             1024,
 		Height:            768,
-		Frameless:         false, // 无边框应用
-		StartHidden:       false, // 启动时隐藏窗口
-		HideWindowOnClose: false, // 关闭时隐藏窗口
+		Frameless:         runtime.GOOS != "darwin", // 无边框应用
+		StartHidden:       false,                    // 启动时隐藏窗口
+		HideWindowOnClose: false,                    // 关闭时隐藏窗口
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
@@ -45,14 +46,15 @@ func main() {
 			app.ImageSrv,
 		},
 		Windows: &windows.Options{
-			WebviewIsTransparent: false, // 网页透明
-			WindowIsTranslucent:  true,  // 窗口半透明
-			DisableWindowIcon:    false, // 禁用窗口图标 true将删除标题栏左上角的图标
+			WebviewIsTransparent: true, // 网页透明
+			WindowIsTranslucent:  true, // 窗口半透明
+			DisableWindowIcon:    true, // 禁用窗口图标 true将删除标题栏左上角的图标
 			Theme:                windows.SystemDefault,
 		},
 		Mac: &mac.Options{
+			TitleBar:             mac.TitleBarHidden(),
 			WebviewIsTransparent: false,
-			WindowIsTranslucent:  true,
+			WindowIsTranslucent:  false,
 			About: &mac.AboutInfo{
 				Title:   "otool " + version,
 				Message: "© 2023 orinfy@foxmail.com",

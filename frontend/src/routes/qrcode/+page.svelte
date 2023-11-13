@@ -1,10 +1,23 @@
 <script>
+    import {
+        Tabs,
+        TabItem,
+        Dropzone,
+        Textarea,
+        Radio,
+        Input,
+        Button,
+        ButtonGroup,
+        InputAddon,
+        Spinner
+    } from 'flowbite-svelte';
     import { onMount } from "svelte";
-    import {showAlert, closeAlert} from "../Alert.svelte";
-    import * as image from "$wailsjs/go/srvs/Image";
-    import * as app from "$wailsjs/go/internal/App";
+    import { toast } from "$lib/ToastContainer.svelte";
+    import Label from "$lib/Label.svelte";
+    import * as image from "wjs/go/srvs/Image";
+    import * as app from "wjs/go/internal/App";
 
-    let text = '', pathName = '', savePath = '', saveName = '';
+    let text = '', outPath = '', fileName = '';
     let disabled = false, loading = false;
     let recover = 1, size = 256;
 
@@ -16,29 +29,8 @@
     ]
 
     onMount(() => {
-        app.DefaultPath().then((p) => {savePath = p})
+        app.DefaultPath().then((path) => {outPath = path})
     });
-
-    async function openFile() {
-        closeAlert();
-        disabled = true;
-
-        try {
-            pathName = await image.OpenFileDialog();
-            if (pathName.length === 0) {
-                return;
-            }
-
-            loading = true;
-            text = await image.QrDecode(pathName);
-
-        } catch (e) {
-            showAlert("danger", e.toString());
-        } finally {
-            disabled = false;
-            loading = false;
-        }
-    }
 
     async function openFolder() {
         try {
@@ -47,125 +39,153 @@
             const path = await app.OpenDirectoryDialog();
             if (path.length === 0) return;
 
-            savePath = path;
+            outPath = path;
 
         } catch (err) {
-            showAlert("danger", err.toString());
+            toast("danger", err.toString());
         } finally {
             disabled = false;
         }
     }
 
     async function genQrcode() {
-        closeAlert();
         disabled = true;
         loading = true;
 
         try {
-            if (saveName === '') {
-                let id = await app.RandId();
-                saveName = id + '.png'
-            }
-
-            await image.QrEncode(text, savePath, saveName, recover, size);
+            let saveName = await image.QrEncode(text, outPath, recover, Number(size));
+            toast('success', '生成' + saveName + '成功');
         } catch (e) {
-            showAlert("danger", e.toString());
+            toast("danger", e.toString());
         } finally {
             disabled = false;
             loading = false;
         }
     }
 
-    $: if (text.length >= 0) {
-        app.RandId().then((id) => {
-            saveName = id + '.png'
-        })
+    const dropHandle = (event) => {
+        fileName = '';
+        event.preventDefault();
+        if (event.dataTransfer.items) {
+            for (let i = 0; i < event.dataTransfer.items.length; i++) {
+                if (event.dataTransfer.items[i].kind === 'file') {
+                    const file = event.dataTransfer.items[i].getAsFile();
+                    fileName = file.name;
+                    decodeQr(file);
+                    break;
+                }
+            }
+        } else {
+            for (let i = 0; i < event.dataTransfer.files.length; i++) {
+                const file = event.dataTransfer.files[i];
+                fileName = file.name;
+                decodeQr(file);
+                break;
+            }
+        }
+    };
+
+    const handleChange = (event) => {
+        const files = event.target.files;
+        if (files.length > 0) {
+            fileName = files[0].name;
+            decodeQr(files[0])
+        }
+    };
+
+    function decodeQr(file) {
+        text = '';
+        disabled = true;
+        loading = true
+
+        let reader = new FileReader();
+        reader.onloadend = function (e) {
+            if (e.target.readyState === FileReader.DONE) {
+                let buffer = new Uint8Array(e.target.result);
+                let body = [];
+
+                for (let i = 0; i < buffer.length; i++) {
+                    body.push(buffer[i]);
+                }
+
+                image.QrDecode(body).then((content) => {
+                    text = content;
+                    toast('success', '解析成功');
+                }).catch((err) => {
+                    toast('danger', err.toString());
+                }).finally(() => {
+                    disabled = false;
+                    loading = false;
+                })
+            }
+        };
+        reader.readAsArrayBuffer(file);
     }
 </script>
 
-<div class="container-fluid">
-    <div class="mt-2">
-        <button class="btn btn-outline-secondary" on:click={openFile} class:disabled={disabled}>
-            {#if loading}
-                <span
-                        class="spinner-border spinner-border-sm text-primary"
-                        role="status"
-                        aria-hidden="true"
-                />
+<Tabs style="underline">
+    <TabItem open title="二维码解析">
+        <Dropzone
+            id="dropzone"
+            on:drop={dropHandle}
+            on:dragover={(event) => {
+                event.preventDefault();
+            }}
+            on:change={handleChange}
+            bind:disabled={disabled}
+        >
+            <svg aria-hidden="true" class="mb-3 w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+            {#if fileName.length === 0}
+                <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Click to upload</span> or drag and drop</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
+            {:else}
+                <p>{fileName}</p>
             {/if}
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-plus-lg" viewBox="0 0 16 16">
-                <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
-            </svg>
-            选择二维码解析
-        </button>
-    </div>
-
-    <div class="mt-3">
-        <label for="inputText" class="form-label">二维码内容</label>
-        <textarea
-            bind:value={text}
-            class="form-control"
-            id="inputText"
-            rows="3"
-            aria-describedby="inputHelp"
-        />
-    </div>
-
-    {#if text.length > 0 }
-        <div class="mt-3 d-flex flex-wrap">
-            容错率：
-            {#each recoverOptions as op}
-                <div class="form-check form-check-inline">
-                    <input
-                        bind:group={recover}
-                        class="form-check-input"
-                        type="radio"
-                        id={op.value}
-                        value={op.value}
-                    />
-                    <label class="form-check-label" for={op.value}>{op.name}</label>
-                </div>
-            {/each}
+        </Dropzone>
+        <Label>解析结果</Label>
+        <Textarea bind:value={text} disabled/>
+    </TabItem>
+    <TabItem title="生成二维码">
+        <div class="mb-3">
+            <Label>二维码内容</Label>
+            <Textarea bind:value={text} bind:disabled={disabled} />
         </div>
 
-        <div class="input-group mt-2 input-group-sm">
-            <span class="input-group-text">尺寸</span>
-            <input bind:value={size} type="number" class="form-control" disabled={disabled}>
-            <span class="input-group-text">px</span>
+        <div class="mb-3">
+            <Label>容错率</Label>
+            <div class="flex flex-wrap gap-3">
+                {#each recoverOptions as op}
+                    <Radio value={op.value} bind:group={recover}>{op.name}</Radio>
+                {/each}
+            </div>
         </div>
 
-        <div class="mt-2 input-group input-group-sm">
-            <button
-                    on:click={openFolder}
-                    disabled={disabled}
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm"
-            >
-                选择保存目录
-            </button>
-            <input type="text" bind:value={savePath} disabled="true"  class="form-control">
+        <div class="mb-3">
+            <Label>尺寸</Label>
+            <ButtonGroup class="w-full">
+                <Input size="sm" type="number" bind:value={size} />
+                <InputAddon>px</InputAddon>
+            </ButtonGroup>
         </div>
 
-        <div class="mt-2 input-group input-group-sm">
-            <span class="input-group-text">保存文件名</span>
-            <input type="text" bind:value={saveName} disabled={disabled}  class="form-control">
+        <div class="mb-3">
+            <ButtonGroup class="mb-3 w-full">
+                <Button class="flex-shrink-0" color="green" on:click={openFolder}>
+                    选择保存目录
+                </Button>
+                <Input size="sm" bind:value={outPath} disabled/>
+            </ButtonGroup>
         </div>
-    {/if}
 
-    <div class="mt-2">
-        <button
+        <Button
             on:click={genQrcode}
-            type="button"
-            disabled={disabled}
-            class="btn btn-outline-primary btn-sm mb-3">
+            bind:disable={disabled}
+            color="blue" outline size="xs"
+        >
             {#if loading}
-                <span
-                        class="spinner-border spinner-border-sm text-primary"
-                        role="status"
-                        aria-hidden="true"
-                />
+                <Spinner size="4" class="mr-3"/>
             {/if}
             生成二维码
-        </button>
-    </div>
-</div>
+        </Button>
+    </TabItem>
+</Tabs>
