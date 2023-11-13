@@ -2,7 +2,6 @@ package main
 
 import (
 	"embed"
-	"runtime"
 
 	"github.com/wailsapp/wails/v2/pkg/logger"
 	"github.com/wailsapp/wails/v2/pkg/options/linux"
@@ -30,9 +29,9 @@ func main() {
 	err := wails.Run(&options.App{
 		Width:             1024,
 		Height:            768,
-		Frameless:         runtime.GOOS != "darwin", // 无边框应用
-		StartHidden:       false,                    // 启动时隐藏窗口
-		HideWindowOnClose: false,                    // 关闭时隐藏窗口
+		Frameless:         false, // 无边框应用
+		StartHidden:       false, // 启动时隐藏窗口
+		HideWindowOnClose: false, // 关闭时隐藏窗口
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
