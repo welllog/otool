@@ -74,6 +74,17 @@
     };
 </script>
 
+<style>
+    ::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background-color: transparent;
+    }
+</style>
+
 <svelte:window bind:innerWidth={width} bind:innerHeight={height}/>
 <div class="fixed top-14 right-4 z-30 h-3/4 overflow-scroll">
     <ToastContainer/>
