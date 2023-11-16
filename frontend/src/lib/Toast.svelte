@@ -13,7 +13,7 @@
         ['normal', 'gray'],
     ]);
 
-    let currentColor = colors.get(type) || 'primary';
+    let currentColor = colors.get(type) || 'blue';
 </script>
 
 <Toast color={ currentColor } on:close divClass="w-full max-w-md p-4 text-gray-500 bg-white shadow dark:text-gray-400 dark:bg-gray-800 gap-3">
