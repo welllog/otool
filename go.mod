@@ -6,8 +6,8 @@ require (
 	github.com/chai2010/webp v1.1.1
 	github.com/disintegration/gift v1.2.1
 	github.com/disintegration/imaging v1.6.2
+	github.com/liyue201/goqr v0.0.0-20200803022322-df443203d4ea
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/tuotoo/qrcode v0.0.0-20220425170535-52ccc2bebf5d
 	github.com/wailsapp/wails/v2 v2.6.0
 	github.com/welllog/golib v0.0.14
 	github.com/welllog/olog v0.1.1
@@ -24,7 +24,6 @@ require (
 	github.com/leaanthony/go-ansi-parser v1.6.0 // indirect
 	github.com/leaanthony/gosod v1.0.3 // indirect
 	github.com/leaanthony/slicer v1.6.0 // indirect
-	github.com/maruel/rs v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/pkg/browser v0.0.0-20210911075715-681adbf594b8 // indirect
@@ -41,5 +40,4 @@ require (
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sys v0.8.0 // indirect
 	golang.org/x/text v0.10.0 // indirect
-	rsc.io/qr v0.2.0 // indirect
 )
