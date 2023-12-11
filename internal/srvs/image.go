@@ -15,12 +15,13 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/chai2010/webp"
 	"github.com/disintegration/gift"
 	"github.com/disintegration/imaging"
+	"github.com/liyue201/goqr"
 	"github.com/skip2/go-qrcode"
-	dqr "github.com/tuotoo/qrcode"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/welllog/golib/goz"
 	"github.com/welllog/golib/mapz"
@@ -320,12 +321,26 @@ func (i *Image) QrEncode(text, savePath string, recover, size int) (string, erro
 }
 
 func (i *Image) QrDecode(b []byte) (string, error) {
-	m, err := dqr.Decode(bytes.NewReader(b))
+	img, err := imaging.Decode(bytes.NewReader(b))
 	if err != nil {
 		return "", errx.Log(err)
 	}
 
-	return m.Content, nil
+	qrCodes, err := goqr.Recognize(img)
+	if err != nil {
+		return "", errx.Log(err)
+	}
+
+	if len(qrCodes) == 1 {
+		return string(qrCodes[0].Payload), nil
+	}
+
+	var buf strings.Builder
+	for _, qrCode := range qrCodes {
+		buf.Write(qrCode.Payload)
+		buf.WriteString("\n")
+	}
+	return buf.String(), nil
 }
 
 func decode(r io.Reader) (image.Image, error) {
