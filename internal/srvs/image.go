@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/gen2brain/avif"
 	"image"
 	"image/gif"
 	"image/png"
@@ -55,20 +56,33 @@ type ImageFile struct {
 }
 
 type ImageOptions struct {
-	Op                   int    `json:"op"`
-	Encoder              string `json:"encoder"`
-	OutPath              string `json:"outPath"`
-	Width                int    `json:"width"`
-	Height               int    `json:"height"`
-	Percent              int    `json:"percent"`
-	JpgQuality           int    `json:"jpgQuality"`
-	PngCompression       int    `json:"pngCompression"`
-	GifNumColors         int    `json:"gifNumColors"`
-	GifDropRate          int    `json:"gifDropRate"`
-	GifDrawOnBefore      bool   `json:"gifDrawOnBefore"`
-	WebpLossless         bool   `json:"webpLossless"`
-	WebpQuality          int    `json:"webpQuality"`
-	WebpRgbInTransparent bool   `json:"webpRgbInTransparent"`
+	Op      int    `json:"op"`
+	Encoder string `json:"encoder"`
+	OutPath string `json:"outPath"`
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
+	Percent int    `json:"percent"`
+	// [1, 100], default 95
+	JpgQuality int `json:"jpgQuality"`
+	// -3 BestCompression, -2 BestSpeed, -1 NoCompression, 0 DefaultCompression
+	PngCompression int `json:"pngCompression"`
+	// [1, 256], default 256
+	GifNumColors int `json:"gifNumColors"`
+	GifDropRate  int `json:"gifDropRate"`
+	// draw current frame over previous
+	GifDrawOnBefore bool `json:"gifDrawOnBefore"`
+	// 无损
+	WebpLossless bool `json:"webpLossless"`
+	// [1, 100], default 90
+	WebpQuality int `json:"webpQuality"`
+	// 是否应该在透明区域保留RGB值
+	WebpRgbInTransparent bool `json:"webpRgbInTransparent"`
+	// [1, 100], default 60
+	AvifQuality int `json:"avifQuality"`
+	// [1, 100], default 60
+	AvifQualityAlpha int `json:"avifQualityAlpha"`
+	// [1, 10], default 10. Slower should make for a better quality image in less bytes.
+	AvifSpeed int `json:"avifSpeed"`
 }
 
 const (
@@ -94,8 +108,8 @@ func (i *Image) OpenFileDialog() (string, error) {
 		ShowHiddenFiles: true,
 		Filters: []runtime.FileFilter{
 			{
-				DisplayName: "Image Files (*.jpg, *.png, *.gif, *.bmp, *.tiff, *.webp)",
-				Pattern:     "*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.tiff;*.tif;*.webp",
+				DisplayName: "Image Files (*.jpg, *.png, *.gif, *.bmp, *.tiff, *.webp, *.avif)",
+				Pattern:     "*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.tiff;*.tif;*.webp;*.avif",
 			},
 		},
 	})
@@ -128,11 +142,13 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 		}
 		img = gifImg.Image[0]
 		frames = len(gifImg.Image)
+	} else if format == "AVIF" {
+		img, err = avif.Decode(f)
 	} else {
 		img, err = decode(f)
-		if err != nil {
-			return nil, errx.Log(err)
-		}
+	}
+	if err != nil {
+		return nil, errx.Log(err)
 	}
 
 	maxWidth := 400
@@ -169,7 +185,7 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eventName string) (bool, error) {
 	var record *taskRecord
 	var first bool
-	i.Kv.Map(func(m map[string]any) {
+	i.Kv.Map(func(m mapz.KV[string, any]) {
 		r, ok := m[eventName]
 		if ok {
 			record = r.(*taskRecord)
@@ -238,7 +254,11 @@ func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eve
 			}
 			img = gifImg.Image[0]
 		} else {
-			img, err = decode(bytes.NewReader(file.Body))
+			if file.Type == "image/avif" {
+				img, err = avif.Decode(bytes.NewReader(file.Body))
+			} else {
+				img, err = decode(bytes.NewReader(file.Body))
+			}
 			if err != nil {
 				notify(i.Ctx, NotifyEvent{
 					Info: fmt.Sprintf("解码%s失败: %s", file.Name, err.Error()),
@@ -262,6 +282,8 @@ func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eve
 			err = imaging.Save(img, outputName, imaging.GIFNumColors(opts.GifNumColors))
 		case "webp":
 			err = webp.Save(outputName, img, &webp.Options{Lossless: opts.WebpLossless, Quality: float32(opts.WebpQuality), Exact: opts.WebpRgbInTransparent})
+		case "avif":
+			err = avif.Encode(of, img, avif.Options{Quality: opts.AvifQuality, QualityAlpha: opts.AvifQualityAlpha, Speed: opts.AvifSpeed})
 		default:
 			err = imaging.Save(img, outputName)
 		}
@@ -351,6 +373,8 @@ func formatFromFilename(filename string) (string, error) {
 	ext := filepath.Ext(filename)
 	if ext == ".webp" {
 		return "WEBP", nil
+	} else if ext == ".avif" {
+		return "AVIF", nil
 	}
 	f, err := imaging.FormatFromExtension(ext)
 	if err != nil {
@@ -491,5 +515,9 @@ func prettySize(size int64) string {
 }
 
 func outImageName(name string, opts ImageOptions) string {
+	index := strings.LastIndex(name, ".")
+	if index > 0 {
+		name = name[:index]
+	}
 	return filepath.Join(opts.OutPath, fmt.Sprintf("%s_%d_%s.%s", name, opts.Op, randz.String(4), opts.Encoder))
 }
