@@ -398,18 +398,24 @@
             {/each}
         </div>
     {:else if imgOpts.encoder === 'avif'}
-        <div class="flex mb-3 gap-4 items-center">
-            <Label>质量:</Label>
-            <Range class="w-auto" bind:value={imgOpts.avifQuality} min="1" max="100" disabled={disabled} />
-            <Input class="w-fit" bind:value={imgOpts.avifQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
+        <div class="flex flex-wrap mb-3 gap-4">
+            <div class="flex items-center">
+                <Label>质量:</Label>
+                <Range class="w-auto" bind:value={imgOpts.avifQuality} min="1" max="100" disabled={disabled} />
+                <Input class="w-fit" bind:value={imgOpts.avifQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
+            </div>
 
-            <Label>alpha通道质量:</Label>
-            <Range class="w-auto" bind:value={imgOpts.avifQualityAlpha} min="1" max="100" disabled={disabled} />
-            <Input class="w-fit" bind:value={imgOpts.avifQualityAlpha} size="sm" type="number" min="1" max="100" disabled={disabled} />
+            <div class="flex items-center">
+                <Label>alpha通道质量:</Label>
+                <Range class="w-auto" bind:value={imgOpts.avifQualityAlpha} min="1" max="100" disabled={disabled} />
+                <Input class="w-fit" bind:value={imgOpts.avifQualityAlpha} size="sm" type="number" min="1" max="100" disabled={disabled} />
+            </div>
 
-            <Label>速度:</Label>
-            <Range class="w-auto" bind:value={imgOpts.avifSpeed} min="1" max="10" disabled={disabled} />
-            <Input class="w-fit" bind:value={imgOpts.avifSpeed} size="sm" type="number" min="1" max="10" disabled={disabled} />
+            <div class="flex items-center">
+                <Label>速度:</Label>
+                <Range class="w-auto" bind:value={imgOpts.avifSpeed} min="1" max="10" disabled={disabled} />
+                <Input class="w-fit" bind:value={imgOpts.avifSpeed} size="sm" type="number" min="1" max="10" disabled={disabled} />
+            </div>
         </div>
     {/if}
 
