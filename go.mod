@@ -8,6 +8,7 @@ require (
 	github.com/chai2010/webp v1.1.1
 	github.com/disintegration/gift v1.2.1
 	github.com/disintegration/imaging v1.6.2
+	github.com/gabriel-vasile/mimetype v1.4.4
 	github.com/gen2brain/avif v0.3.2
 	github.com/liyue201/goqr v0.0.0-20200803022322-df443203d4ea
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e

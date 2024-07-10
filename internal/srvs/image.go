@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/gen2brain/avif"
 	"image"
 	"image/gif"
 	"image/png"
@@ -17,6 +16,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/gabriel-vasile/mimetype"
+	"github.com/gen2brain/avif"
 
 	"github.com/chai2010/webp"
 	"github.com/disintegration/gift"
@@ -116,11 +118,6 @@ func (i *Image) OpenFileDialog() (string, error) {
 }
 
 func (i *Image) Decode(pathName string) (*ImageInfo, error) {
-	format, err := formatFromFilename(pathName)
-	if err != nil {
-		return nil, err
-	}
-
 	info, err := os.Stat(pathName)
 	if err != nil {
 		return nil, errx.Log(err)
@@ -130,20 +127,24 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 	if err != nil {
 		return nil, errx.Log(err)
 	}
-
 	defer f.Close()
+
+	mimetype.SetLimit(16)
+	mTyp, err := mimetype.DetectReader(f)
+	if err != nil {
+		return nil, errx.Log(err)
+	}
+	_, _ = f.Seek(0, io.SeekStart)
 
 	frames := 1
 	var img image.Image
-	if format == imaging.GIF.String() {
+	if mTyp.String() == "image/gif" {
 		gifImg, err := gif.DecodeAll(f)
 		if err != nil {
 			return nil, errx.Log(err)
 		}
 		img = gifImg.Image[0]
 		frames = len(gifImg.Image)
-	} else if format == "AVIF" {
-		img, err = avif.Decode(f)
 	} else {
 		img, err = decode(f)
 	}
@@ -169,7 +170,7 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 
 	return &ImageInfo{
 		Name:         filepath.Base(pathName),
-		Format:       format,
+		Format:       strings.TrimLeft(mTyp.Extension(), "."),
 		Width:        width,
 		Height:       height,
 		Size:         prettySize(info.Size()),
@@ -254,11 +255,7 @@ func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eve
 			}
 			img = gifImg.Image[0]
 		} else {
-			if file.Type == "image/avif" {
-				img, err = avif.Decode(bytes.NewReader(file.Body))
-			} else {
-				img, err = decode(bytes.NewReader(file.Body))
-			}
+			img, err = decode(bytes.NewReader(file.Body))
 			if err != nil {
 				notify(i.Ctx, NotifyEvent{
 					Info: fmt.Sprintf("解码%s失败: %s", file.Name, err.Error()),
@@ -519,5 +516,5 @@ func outImageName(name string, opts ImageOptions) string {
 	if index > 0 {
 		name = name[:index]
 	}
-	return filepath.Join(opts.OutPath, fmt.Sprintf("%s_%d_%s.%s", name, opts.Op, randz.String(4), opts.Encoder))
+	return filepath.Join(opts.OutPath, fmt.Sprintf("%s_%s.%s", name, randz.String(4), opts.Encoder))
 }
