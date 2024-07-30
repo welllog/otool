@@ -9,7 +9,6 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/welllog/golib/goz"
-	"github.com/welllog/golib/mapz"
 	"github.com/welllog/golib/randz"
 	"github.com/welllog/otool/internal/errx"
 	"github.com/welllog/otool/internal/srvs"
@@ -31,7 +30,7 @@ func NewApp(version string) *App {
 		version:    version,
 		gow:        gow,
 		EncryptSrv: &srvs.Encrypt{Gow: gow},
-		ImageSrv:   &srvs.Image{Gow: gow, Kv: mapz.NewSafeKV[string, any](10)},
+		ImageSrv:   srvs.NewImage(gow),
 	}
 }
 

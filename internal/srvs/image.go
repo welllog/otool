@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"image/gif"
 	"image/png"
 	"io"
@@ -101,7 +102,11 @@ const (
 type Image struct {
 	Ctx context.Context
 	Gow *goz.Limiter
-	Kv  *mapz.SafeKV[string, any]
+	kv  *mapz.SafeKV[string, *taskRecord]
+}
+
+func NewImage(gow *goz.Limiter) *Image {
+	return &Image{Gow: gow, kv: mapz.NewSafeKV[string, *taskRecord](10)}
 }
 
 func (i *Image) OpenFileDialog() (string, error) {
@@ -184,23 +189,7 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 }
 
 func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eventName string) (bool, error) {
-	var record *taskRecord
-	var first bool
-	i.Kv.Map(func(m mapz.KV[string, any]) {
-		r, ok := m[eventName]
-		if ok {
-			record = r.(*taskRecord)
-		} else {
-			record = &taskRecord{
-				progress: countProgress{count: 3 * filesNum, event: eventName, ctx: i.Ctx},
-				errCh:    make(chan error, filesNum),
-				name:     file.Name + "...",
-			}
-			record.done.Add(filesNum)
-			m[eventName] = record
-			first = true
-		}
-	})
+	record, first := i.getOrCreateRecord(eventName, file.Name, filesNum)
 
 	i.Gow.Go(func() {
 		defer record.done.Done()
@@ -297,25 +286,7 @@ func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eve
 
 	if first {
 		i.Gow.Go(func() {
-			record.done.Wait()
-			i.Kv.Delete(record.progress.event)
-			if len(record.errCh) == 0 {
-				notify(i.Ctx, NotifyEvent{
-					Info: fmt.Sprintf("%s处理全部完成", record.name),
-					Type: "success",
-				})
-			} else if len(record.errCh) == filesNum {
-				notify(i.Ctx, NotifyEvent{
-					Info: fmt.Sprintf("%s处理全部失败", record.name),
-					Type: "danger",
-				})
-			} else {
-				notify(i.Ctx, NotifyEvent{
-					Info: fmt.Sprintf("%s处理部分失败", record.name),
-					Type: "warning",
-				})
-			}
-			record.progress.close()
+			i.waitRecord(record)
 		})
 	}
 
@@ -360,6 +331,56 @@ func (i *Image) QrDecode(b []byte) (string, error) {
 		buf.WriteString("\n")
 	}
 	return buf.String(), nil
+}
+
+func (i *Image) getOrCreateRecord(eventName, fileName string, filesNum int) (*taskRecord, bool) {
+	var record *taskRecord
+	var first bool
+	i.kv.Map(func(m mapz.KV[string, *taskRecord]) {
+		r, ok := m[eventName]
+		if ok {
+			record = r
+			return
+		}
+
+		first = true
+		record = &taskRecord{
+			progress: countProgress{count: 3 * filesNum, event: eventName, ctx: i.Ctx},
+			errCh:    make(chan error, filesNum),
+			name:     fileName + "...",
+		}
+		record.done.Add(filesNum)
+		m[eventName] = record
+	})
+
+	return record, first
+}
+
+func (i *Image) waitRecord(record *taskRecord) {
+	record.done.Wait()
+	i.kv.Delete(record.progress.event)
+
+	if len(record.errCh) == 0 {
+		notify(i.Ctx, NotifyEvent{
+			Info: fmt.Sprintf("%s处理全部完成", record.name),
+			Type: "success",
+		})
+		return
+	}
+
+	if len(record.errCh) == cap(record.errCh) {
+		notify(i.Ctx, NotifyEvent{
+			Info: fmt.Sprintf("%s处理全部失败", record.name),
+			Type: "danger",
+		})
+		return
+	}
+
+	notify(i.Ctx, NotifyEvent{
+		Info: fmt.Sprintf("%s处理部分失败", record.name),
+		Type: "warning",
+	})
+	record.progress.close()
 }
 
 func decode(r io.Reader) (image.Image, error) {
@@ -420,8 +441,8 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 	delay := 0
 
 	firstFrame := g.Image[0]
-	c.Config.Width = filter.Bounds(firstFrame.Bounds()).Max.X
-	c.Config.Height = filter.Bounds(firstFrame.Bounds()).Max.Y
+	g.Config.Width = filter.Bounds(firstFrame.Bounds()).Dx()
+	g.Config.Height = filter.Bounds(firstFrame.Bounds()).Dy()
 	if opts.GifDrawOnBefore {
 		tmp := image.NewNRGBA(firstFrame.Bounds())
 		for i := range g.Image {
@@ -430,6 +451,7 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 			dst := image.NewPaletted(filter.Bounds(tmp.Bounds()), g.Image[i].Palette)
 			filter.Draw(dst, tmp)
 			delay = delay + g.Delay[i]
+
 			if opts.GifDropRate == 0 || (i+1)%opts.GifDropRate != 0 {
 				c.Image = append(c.Image, dst)
 				c.Delay = append(c.Delay, delay)
@@ -443,10 +465,17 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 			if opts.GifDropRate > 0 && (i+1)%opts.GifDropRate == 0 {
 				continue
 			}
+
+			// this for transparent gif not work well, so don't use it
+			//clone := image.NewPaletted(filter.Bounds(firstFrame.Bounds()), g.Image[i].Palette)
+			//filter.Draw(clone, g.Image[i])
+
+			// tmp image is used here to keep the same dimensions for each frame
 			tmp := image.NewNRGBA(firstFrame.Bounds())
 			gift.New().DrawAt(tmp, g.Image[i], g.Image[i].Bounds().Min, gift.CopyOperator)
 			dst := image.NewPaletted(filter.Bounds(tmp.Bounds()), g.Image[i].Palette)
 			filter.Draw(dst, tmp)
+
 			c.Image = append(c.Image, dst)
 			c.Delay = append(c.Delay, delay)
 			c.Disposal = append(c.Disposal, g.Disposal[i])
@@ -517,4 +546,24 @@ func outImageName(name string, opts ImageOptions) string {
 		name = name[:index]
 	}
 	return filepath.Join(opts.OutPath, fmt.Sprintf("%s_%s.%s", name, randz.String(4), opts.Encoder))
+}
+
+func extractPalette(img image.Image) color.Palette {
+	bounds := img.Bounds()
+	palette := make(color.Palette, 0, 256)
+	colorMap := make(map[color.Color]struct{})
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			c := img.At(x, y)
+			if _, exists := colorMap[c]; !exists {
+				colorMap[c] = struct{}{}
+				palette = append(palette, c)
+				if len(palette) >= 256 {
+					return palette
+				}
+			}
+		}
+	}
+	return palette
 }
