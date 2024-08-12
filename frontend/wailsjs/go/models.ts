@@ -63,6 +63,9 @@ export namespace srvs {
 	    webpLossless: boolean;
 	    webpQuality: number;
 	    webpRgbInTransparent: boolean;
+	    avifQuality: number;
+	    avifQualityAlpha: number;
+	    avifSpeed: number;
 	
 	    static createFrom(source: any = {}) {
 	        return new ImageOptions(source);
@@ -84,6 +87,9 @@ export namespace srvs {
 	        this.webpLossless = source["webpLossless"];
 	        this.webpQuality = source["webpQuality"];
 	        this.webpRgbInTransparent = source["webpRgbInTransparent"];
+	        this.avifQuality = source["avifQuality"];
+	        this.avifQualityAlpha = source["avifQualityAlpha"];
+	        this.avifSpeed = source["avifSpeed"];
 	    }
 	}
 

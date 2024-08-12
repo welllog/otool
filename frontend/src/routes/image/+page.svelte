@@ -24,7 +24,7 @@
     );
 
     const name = 'filepond';
-    const acceptedFileTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/bmp', 'image/tiff', 'image/webp'];
+    const acceptedFileTypes = ['image/png', 'image/jpeg', 'image/gif', 'image/bmp', 'image/tiff', 'image/webp', 'image/avif'];
     let pond;
     let filesNum = 0;
     let firstWidth = 0, firstHeight = 0;
@@ -113,7 +113,7 @@
         }
     ]
 
-    const encoders = ['jpg', 'png', 'gif', 'bmp', 'tiff', 'webp'];
+    const encoders = ['jpg', 'png', 'gif', 'bmp', 'tiff', 'webp', 'avif'];
 
     const pngCompress = [
         {
@@ -218,6 +218,9 @@
         imgOpts.jpgQuality = Number(imgOpts.jpgQuality)
         imgOpts.gifNumColors = Number(imgOpts.gifNumColors)
         imgOpts.webpQuality = Number(imgOpts.webpQuality)
+        imgOpts.avifQuality = Number(imgOpts.avifQuality)
+        imgOpts.avifQualityAlpha = Number(imgOpts.avifQualityAlpha)
+        imgOpts.avifSpeed = Number(imgOpts.avifSpeed)
         filesName += Math.round(Math.random() * 10000)
         let eventName = md5(filesName)
         for (let i = 0; i < imgFiles.length; i++) {
@@ -257,6 +260,10 @@
                 imgOpts.webpQuality = 90
                 imgOpts.webpLossless = false
                 imgOpts.webpRgbInTransparent = false
+            case 'avif':
+                imgOpts.avifQuality = 60
+                imgOpts.avifQualityAlpha = 60
+                imgOpts.avifSpeed = 10
         }
     }
 
@@ -373,10 +380,15 @@
         </div>
     {:else if imgOpts.encoder === 'webp'}
         <div class="flex mb-3 gap-2 items-center">
+            {#if !imgOpts.webpLossless}
             <Label>质量:</Label>
             <Range class="w-auto" bind:value={imgOpts.webpQuality} min="1" max="100" disabled={disabled} />
             <Input class="w-fit" bind:value={imgOpts.webpQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
+            {/if}
             <Checkbox bind:checked={imgOpts.webpLossless}  disabled={disabled}>无损</Checkbox>
+            {#if imgOpts.webpLossless}
+            <Checkbox bind:checked={imgOpts.webpRgbInTransparent}  disabled={disabled}>保留透明区域rgb</Checkbox>
+            {/if}
         </div>
     {:else if imgOpts.encoder === 'png'}
         <div class="mb-3 flex flex-wrap gap-4">
@@ -384,6 +396,26 @@
             {#each pngCompress as pc}
                 <Radio value={pc.value} bind:group={imgOpts.pngCompression} disabled={disabled}>{pc.name}</Radio>
             {/each}
+        </div>
+    {:else if imgOpts.encoder === 'avif'}
+        <div class="flex flex-wrap mb-3 gap-4">
+            <div class="flex items-center">
+                <Label>质量:</Label>
+                <Range class="w-auto" bind:value={imgOpts.avifQuality} min="1" max="100" disabled={disabled} />
+                <Input class="w-fit" bind:value={imgOpts.avifQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
+            </div>
+
+            <div class="flex items-center">
+                <Label>alpha通道质量:</Label>
+                <Range class="w-auto" bind:value={imgOpts.avifQualityAlpha} min="1" max="100" disabled={disabled} />
+                <Input class="w-fit" bind:value={imgOpts.avifQualityAlpha} size="sm" type="number" min="1" max="100" disabled={disabled} />
+            </div>
+
+            <div class="flex items-center">
+                <Label>速度:</Label>
+                <Range class="w-auto" bind:value={imgOpts.avifSpeed} min="1" max="10" disabled={disabled} />
+                <Input class="w-fit" bind:value={imgOpts.avifSpeed} size="sm" type="number" min="1" max="10" disabled={disabled} />
+            </div>
         </div>
     {/if}
 

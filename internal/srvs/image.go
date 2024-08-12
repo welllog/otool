@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"image/gif"
 	"image/png"
 	"io"
@@ -16,6 +17,9 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/gabriel-vasile/mimetype"
+	"github.com/gen2brain/avif"
 
 	"github.com/chai2010/webp"
 	"github.com/disintegration/gift"
@@ -55,20 +59,33 @@ type ImageFile struct {
 }
 
 type ImageOptions struct {
-	Op                   int    `json:"op"`
-	Encoder              string `json:"encoder"`
-	OutPath              string `json:"outPath"`
-	Width                int    `json:"width"`
-	Height               int    `json:"height"`
-	Percent              int    `json:"percent"`
-	JpgQuality           int    `json:"jpgQuality"`
-	PngCompression       int    `json:"pngCompression"`
-	GifNumColors         int    `json:"gifNumColors"`
-	GifDropRate          int    `json:"gifDropRate"`
-	GifDrawOnBefore      bool   `json:"gifDrawOnBefore"`
-	WebpLossless         bool   `json:"webpLossless"`
-	WebpQuality          int    `json:"webpQuality"`
-	WebpRgbInTransparent bool   `json:"webpRgbInTransparent"`
+	Op      int    `json:"op"`
+	Encoder string `json:"encoder"`
+	OutPath string `json:"outPath"`
+	Width   int    `json:"width"`
+	Height  int    `json:"height"`
+	Percent int    `json:"percent"`
+	// [1, 100], default 95
+	JpgQuality int `json:"jpgQuality"`
+	// -3 BestCompression, -2 BestSpeed, -1 NoCompression, 0 DefaultCompression
+	PngCompression int `json:"pngCompression"`
+	// [1, 256], default 256
+	GifNumColors int `json:"gifNumColors"`
+	GifDropRate  int `json:"gifDropRate"`
+	// draw current frame over previous
+	GifDrawOnBefore bool `json:"gifDrawOnBefore"`
+	// 无损
+	WebpLossless bool `json:"webpLossless"`
+	// [1, 100], default 90
+	WebpQuality int `json:"webpQuality"`
+	// 是否应该在透明区域保留RGB值
+	WebpRgbInTransparent bool `json:"webpRgbInTransparent"`
+	// [1, 100], default 60
+	AvifQuality int `json:"avifQuality"`
+	// [1, 100], default 60
+	AvifQualityAlpha int `json:"avifQualityAlpha"`
+	// [1, 10], default 10. Slower should make for a better quality image in less bytes.
+	AvifSpeed int `json:"avifSpeed"`
 }
 
 const (
@@ -85,7 +102,11 @@ const (
 type Image struct {
 	Ctx context.Context
 	Gow *goz.Limiter
-	Kv  *mapz.SafeKV[string, any]
+	kv  *mapz.SafeKV[string, *taskRecord]
+}
+
+func NewImage(gow *goz.Limiter) *Image {
+	return &Image{Gow: gow, kv: mapz.NewSafeKV[string, *taskRecord](10)}
 }
 
 func (i *Image) OpenFileDialog() (string, error) {
@@ -94,19 +115,14 @@ func (i *Image) OpenFileDialog() (string, error) {
 		ShowHiddenFiles: true,
 		Filters: []runtime.FileFilter{
 			{
-				DisplayName: "Image Files (*.jpg, *.png, *.gif, *.bmp, *.tiff, *.webp)",
-				Pattern:     "*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.tiff;*.tif;*.webp",
+				DisplayName: "Image Files (*.jpg, *.png, *.gif, *.bmp, *.tiff, *.webp, *.avif)",
+				Pattern:     "*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.tiff;*.tif;*.webp;*.avif",
 			},
 		},
 	})
 }
 
 func (i *Image) Decode(pathName string) (*ImageInfo, error) {
-	format, err := formatFromFilename(pathName)
-	if err != nil {
-		return nil, err
-	}
-
 	info, err := os.Stat(pathName)
 	if err != nil {
 		return nil, errx.Log(err)
@@ -116,12 +132,18 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 	if err != nil {
 		return nil, errx.Log(err)
 	}
-
 	defer f.Close()
+
+	mimetype.SetLimit(16)
+	mTyp, err := mimetype.DetectReader(f)
+	if err != nil {
+		return nil, errx.Log(err)
+	}
+	_, _ = f.Seek(0, io.SeekStart)
 
 	frames := 1
 	var img image.Image
-	if format == imaging.GIF.String() {
+	if mTyp.String() == "image/gif" {
 		gifImg, err := gif.DecodeAll(f)
 		if err != nil {
 			return nil, errx.Log(err)
@@ -130,9 +152,9 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 		frames = len(gifImg.Image)
 	} else {
 		img, err = decode(f)
-		if err != nil {
-			return nil, errx.Log(err)
-		}
+	}
+	if err != nil {
+		return nil, errx.Log(err)
 	}
 
 	maxWidth := 400
@@ -153,7 +175,7 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 
 	return &ImageInfo{
 		Name:         filepath.Base(pathName),
-		Format:       format,
+		Format:       strings.TrimLeft(mTyp.Extension(), "."),
 		Width:        width,
 		Height:       height,
 		Size:         prettySize(info.Size()),
@@ -167,23 +189,7 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 }
 
 func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eventName string) (bool, error) {
-	var record *taskRecord
-	var first bool
-	i.Kv.Map(func(m map[string]any) {
-		r, ok := m[eventName]
-		if ok {
-			record = r.(*taskRecord)
-		} else {
-			record = &taskRecord{
-				progress: countProgress{count: 3 * filesNum, event: eventName, ctx: i.Ctx},
-				errCh:    make(chan error, filesNum),
-				name:     file.Name + "...",
-			}
-			record.done.Add(filesNum)
-			m[eventName] = record
-			first = true
-		}
-	})
+	record, first := i.getOrCreateRecord(eventName, file.Name, filesNum)
 
 	i.Gow.Go(func() {
 		defer record.done.Done()
@@ -262,6 +268,8 @@ func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eve
 			err = imaging.Save(img, outputName, imaging.GIFNumColors(opts.GifNumColors))
 		case "webp":
 			err = webp.Save(outputName, img, &webp.Options{Lossless: opts.WebpLossless, Quality: float32(opts.WebpQuality), Exact: opts.WebpRgbInTransparent})
+		case "avif":
+			err = avif.Encode(of, img, avif.Options{Quality: opts.AvifQuality, QualityAlpha: opts.AvifQualityAlpha, Speed: opts.AvifSpeed})
 		default:
 			err = imaging.Save(img, outputName)
 		}
@@ -278,25 +286,7 @@ func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eve
 
 	if first {
 		i.Gow.Go(func() {
-			record.done.Wait()
-			i.Kv.Delete(record.progress.event)
-			if len(record.errCh) == 0 {
-				notify(i.Ctx, NotifyEvent{
-					Info: fmt.Sprintf("%s处理全部完成", record.name),
-					Type: "success",
-				})
-			} else if len(record.errCh) == filesNum {
-				notify(i.Ctx, NotifyEvent{
-					Info: fmt.Sprintf("%s处理全部失败", record.name),
-					Type: "danger",
-				})
-			} else {
-				notify(i.Ctx, NotifyEvent{
-					Info: fmt.Sprintf("%s处理部分失败", record.name),
-					Type: "warning",
-				})
-			}
-			record.progress.close()
+			i.waitRecord(record)
 		})
 	}
 
@@ -343,6 +333,56 @@ func (i *Image) QrDecode(b []byte) (string, error) {
 	return buf.String(), nil
 }
 
+func (i *Image) getOrCreateRecord(eventName, fileName string, filesNum int) (*taskRecord, bool) {
+	var record *taskRecord
+	var first bool
+	i.kv.Map(func(m mapz.KV[string, *taskRecord]) {
+		r, ok := m[eventName]
+		if ok {
+			record = r
+			return
+		}
+
+		first = true
+		record = &taskRecord{
+			progress: countProgress{count: 3 * filesNum, event: eventName, ctx: i.Ctx},
+			errCh:    make(chan error, filesNum),
+			name:     fileName + "...",
+		}
+		record.done.Add(filesNum)
+		m[eventName] = record
+	})
+
+	return record, first
+}
+
+func (i *Image) waitRecord(record *taskRecord) {
+	record.done.Wait()
+	i.kv.Delete(record.progress.event)
+	defer record.progress.close()
+
+	if len(record.errCh) == 0 {
+		notify(i.Ctx, NotifyEvent{
+			Info: fmt.Sprintf("%s处理全部完成", record.name),
+			Type: "success",
+		})
+		return
+	}
+
+	if len(record.errCh) == cap(record.errCh) {
+		notify(i.Ctx, NotifyEvent{
+			Info: fmt.Sprintf("%s处理全部失败", record.name),
+			Type: "danger",
+		})
+		return
+	}
+
+	notify(i.Ctx, NotifyEvent{
+		Info: fmt.Sprintf("%s处理部分失败", record.name),
+		Type: "warning",
+	})
+}
+
 func decode(r io.Reader) (image.Image, error) {
 	return imaging.Decode(r, imaging.AutoOrientation(true))
 }
@@ -351,6 +391,8 @@ func formatFromFilename(filename string) (string, error) {
 	ext := filepath.Ext(filename)
 	if ext == ".webp" {
 		return "WEBP", nil
+	} else if ext == ".avif" {
+		return "AVIF", nil
 	}
 	f, err := imaging.FormatFromExtension(ext)
 	if err != nil {
@@ -399,8 +441,8 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 	delay := 0
 
 	firstFrame := g.Image[0]
-	c.Config.Width = filter.Bounds(firstFrame.Bounds()).Max.X
-	c.Config.Height = filter.Bounds(firstFrame.Bounds()).Max.Y
+	g.Config.Width = filter.Bounds(firstFrame.Bounds()).Dx()
+	g.Config.Height = filter.Bounds(firstFrame.Bounds()).Dy()
 	if opts.GifDrawOnBefore {
 		tmp := image.NewNRGBA(firstFrame.Bounds())
 		for i := range g.Image {
@@ -409,6 +451,7 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 			dst := image.NewPaletted(filter.Bounds(tmp.Bounds()), g.Image[i].Palette)
 			filter.Draw(dst, tmp)
 			delay = delay + g.Delay[i]
+
 			if opts.GifDropRate == 0 || (i+1)%opts.GifDropRate != 0 {
 				c.Image = append(c.Image, dst)
 				c.Delay = append(c.Delay, delay)
@@ -422,10 +465,17 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 			if opts.GifDropRate > 0 && (i+1)%opts.GifDropRate == 0 {
 				continue
 			}
+
+			// this for transparent gif not work well, so don't use it
+			// clone := image.NewPaletted(filter.Bounds(firstFrame.Bounds()), g.Image[i].Palette)
+			// filter.Draw(clone, g.Image[i])
+
+			// tmp image is used here to keep the same dimensions for each frame
 			tmp := image.NewNRGBA(firstFrame.Bounds())
 			gift.New().DrawAt(tmp, g.Image[i], g.Image[i].Bounds().Min, gift.CopyOperator)
 			dst := image.NewPaletted(filter.Bounds(tmp.Bounds()), g.Image[i].Palette)
 			filter.Draw(dst, tmp)
+
 			c.Image = append(c.Image, dst)
 			c.Delay = append(c.Delay, delay)
 			c.Disposal = append(c.Disposal, g.Disposal[i])
@@ -491,5 +541,29 @@ func prettySize(size int64) string {
 }
 
 func outImageName(name string, opts ImageOptions) string {
-	return filepath.Join(opts.OutPath, fmt.Sprintf("%s_%d_%s.%s", name, opts.Op, randz.String(4), opts.Encoder))
+	index := strings.LastIndex(name, ".")
+	if index > 0 {
+		name = name[:index]
+	}
+	return filepath.Join(opts.OutPath, fmt.Sprintf("%s_%s.%s", name, randz.String(4), opts.Encoder))
+}
+
+func extractPalette(img image.Image) color.Palette {
+	bounds := img.Bounds()
+	palette := make(color.Palette, 0, 256)
+	colorMap := make(map[color.Color]struct{})
+
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			c := img.At(x, y)
+			if _, exists := colorMap[c]; !exists {
+				colorMap[c] = struct{}{}
+				palette = append(palette, c)
+				if len(palette) >= 256 {
+					return palette
+				}
+			}
+		}
+	}
+	return palette
 }

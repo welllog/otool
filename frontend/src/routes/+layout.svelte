@@ -78,6 +78,7 @@
     ::-webkit-scrollbar {
         width: 0;
         height: 0;
+        display: none;
     }
 
     ::-webkit-scrollbar-thumb {
