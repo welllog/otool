@@ -359,6 +359,7 @@ func (i *Image) getOrCreateRecord(eventName, fileName string, filesNum int) (*ta
 func (i *Image) waitRecord(record *taskRecord) {
 	record.done.Wait()
 	i.kv.Delete(record.progress.event)
+	defer record.progress.close()
 
 	if len(record.errCh) == 0 {
 		notify(i.Ctx, NotifyEvent{
@@ -380,7 +381,6 @@ func (i *Image) waitRecord(record *taskRecord) {
 		Info: fmt.Sprintf("%s处理部分失败", record.name),
 		Type: "warning",
 	})
-	record.progress.close()
 }
 
 func decode(r io.Reader) (image.Image, error) {
@@ -467,8 +467,8 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 			}
 
 			// this for transparent gif not work well, so don't use it
-			//clone := image.NewPaletted(filter.Bounds(firstFrame.Bounds()), g.Image[i].Palette)
-			//filter.Draw(clone, g.Image[i])
+			// clone := image.NewPaletted(filter.Bounds(firstFrame.Bounds()), g.Image[i].Palette)
+			// filter.Draw(clone, g.Image[i])
 
 			// tmp image is used here to keep the same dimensions for each frame
 			tmp := image.NewNRGBA(firstFrame.Bounds())
