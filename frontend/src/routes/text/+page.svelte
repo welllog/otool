@@ -1,5 +1,5 @@
 <script>
-    import * as enc from "wjs/go/srvs/encrypt.js";
+    import * as enc from "wjs/go/srvs/Encrypt.js";
     import { toast } from "$lib/ToastContainer.svelte";
     import Label from "$lib/Label.svelte";
     import { Textarea , Radio, Checkbox, Input, Button } from "flowbite-svelte";

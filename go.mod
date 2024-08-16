@@ -2,8 +2,6 @@ module github.com/welllog/otool
 
 go 1.21
 
-toolchain go1.22.4
-
 require (
 	github.com/chai2010/webp v1.1.1
 	github.com/disintegration/gift v1.2.1
