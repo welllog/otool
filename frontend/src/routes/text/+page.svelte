@@ -237,7 +237,7 @@
 
 <div class="mb-3 mt-1">
     <Label for="inputText">编解码文本</Label>
-    <Textarea id="inputText" bind:value={inputText}>
+    <Textarea id="inputText" bind:value={inputText} rows="4">
         <div slot="footer" class="text-xs text-gray-500 dark:text-gray-100" >
             <span class="text-red-500 dark:text-red-500">{inputLen}</span> chars
         </div>
@@ -286,7 +286,7 @@
 
 <div>
     <Label for="outputText">输出文本</Label>
-    <Textarea id="outputText" bind:value={outputText}>
+    <Textarea id="outputText" bind:value={outputText} rows="8">
         <div slot="footer" class="text-xs text-gray-500 dark:text-gray-100" >
             <span class="text-red-500 dark:text-red-500">{outputLen}</span> chars
         </div>
