@@ -13,7 +13,7 @@ require (
 	github.com/liyue201/goqr v0.0.0-20200803022322-df443203d4ea
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/wailsapp/wails/v2 v2.10.2
-	github.com/welllog/golib v0.0.16
+	github.com/welllog/golib v0.0.24
 	github.com/welllog/olog v0.1.3
 	golang.org/x/image v0.18.0
 )

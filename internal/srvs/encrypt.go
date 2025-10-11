@@ -108,8 +108,8 @@ func (e *Encrypt) Base64Enc(in string) string {
 	return strz.Base64EncodeToString(in, base64.StdEncoding)
 }
 
-func (e *Encrypt) Base64Dec(in string) (string, error) {
-	return errx.LogStr(strz.Base64DecodeToString(in, base64.StdEncoding))
+func (e *Encrypt) Base64Dec(in string) string {
+	return strz.Base64ParseToString(in)
 }
 
 func (e *Encrypt) UrlEnc(in string) string {
