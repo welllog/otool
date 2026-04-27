@@ -1,9 +1,7 @@
-<script lang="ts" context="module">
-    import { writable } from 'svelte/store';
-    import { fade, fly } from 'svelte/transition';
+<script lang="ts" module>
     import Toast from './Toast.svelte';
 
-    export let defaultDuration = 2000;
+    let defaultDuration = 2000;
 
     interface toastMeta {
         symbol: symbol;
@@ -12,14 +10,11 @@
         duration: number;
     }
 
-    let meta: toastMeta[] = [];
-    const toasts = writable(meta);
+    let meta: toastMeta[] = $state([]);
+
     export function toast(type: string, message: string, duration = 0) {
         let symbol = Symbol();
-        toasts.update(t => {
-            t.unshift({ symbol, type, message, duration })
-            return t;
-        })
+        meta.unshift({ symbol, type, message, duration })
 
         if (duration === 0) {
             duration = defaultDuration;
@@ -32,14 +27,17 @@
         }
     }
 
-    function closeToast(symbol: Symbol) {
-        toasts.update(t => t.filter(toast => toast.symbol !== symbol));
+    function closeToast(symbol: symbol) {
+        meta = meta.filter(t => t.symbol !== symbol);
     }
-
 </script>
 
-{#each $toasts as toast (toast.symbol)}
+<script>
+    import { fly, fade } from 'svelte/transition';
+</script>
+
+{#each meta as t (t.symbol)}
     <div in:fly={{ x: 200, duration: 1000 }} out:fade class="m-1">
-        <Toast type={toast.type} message={toast.message} on:close={() => {closeToast(toast.symbol)}} />
+        <Toast type={t.type} message={t.message} />
     </div>
 {/each}

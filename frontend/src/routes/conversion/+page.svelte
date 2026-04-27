@@ -2,14 +2,16 @@
     import Label from "$lib/Label.svelte";
     import { Radio, Select, Input, Button } from "flowbite-svelte";
 
-    let inNo = '0', outNo = '0', inDecimal = 10, outDecimal = 10;
+    let inNo = $state('0');
+    let outNo = $state('0');
+    let inDecimal = $state(10);
+    let outDecimal = $state(10);
 
     function transform() {
         let n = parseInt(inNo, inDecimal)
         outNo = n.toString(outDecimal)
     }
 
-    // 数字进制
     let decimalOpts = [
         {name: '二进制', value: 2},
         {name: '八进制', value: 8},
@@ -56,7 +58,6 @@
         { value: 35, name: '三十五进制' },
         { value: 36, name: '三十六进制' },
     ];
-
 </script>
 
 <div class="mb-3 mt-3 flex flex-wrap gap-3">
@@ -79,7 +80,7 @@
 </div>
 
 <div class="mb-3">
-    <Button on:click={transform} color="blue" outline size="xs">转换</Button>
+    <Button onclick={transform} color="blue" outline size="xs">转换</Button>
 </div>
 
 <div>

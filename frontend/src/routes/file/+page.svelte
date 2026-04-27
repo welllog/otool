@@ -7,14 +7,19 @@
     import Label from "$lib/Label.svelte";
     import { Textarea , Radio, Input, Button, ButtonGroup, Spinner, Modal, Progressbar } from "flowbite-svelte";
 
-    let loading = false, disabled = false, showSecret = true, showOutput = false, popupModal = false, showProgress = false;
-    let opt = 'encrypt', secretKey = '', outputText = '';
-    let outputLen = 0
-    let inputFile = '';
-    let curProgress = 0;
+    let loading = $state(false);
+    let disabled = $state(false);
+    let showSecret = $state(true);
+    let showOutput = $state(false);
+    let popupModal = $state(false);
+    let showProgress = $state(false);
+    let opt = $state('encrypt');
+    let secretKey = $state('');
+    let outputText = $state('');
+    let outputLen = $derived(outputText.length);
+    let inputFile = $state('');
+    let curProgress = $state(0);
     let progressClose = () => {};
-
-    $: outputLen = outputText.length
 
     function transform() {
         if (inputFile.length === 0) {
@@ -56,16 +61,16 @@
             let eventName = await enc.EncryptFile(inputFile, secretKey);
             curProgress = 0;
             showProgress = true;
-            progressClose = EventsOn(eventName, (progress) => {
+            progressClose = EventsOn(eventName, (/** @type {number} */ progress) => {
                 if (progress >= 0) {
                     curProgress = progress;
                 } else {
-                    EventsOff(eventName);
+                    EventsOff(/** @type {string} */ (eventName));
                     showProgress = false;
                     disabled = false;
                 }
             })
-        } catch (err) {
+        } catch (/** @type {any} */ err) {
             toast("danger", err.toString());
         } finally {
             loading = false;
@@ -84,23 +89,23 @@
             let eventName = await enc.DecryptFile(inputFile, secretKey);
             curProgress = 0;
             showProgress = true;
-            progressClose = EventsOn(eventName, (progress) => {
+            progressClose = EventsOn(eventName, (/** @type {number} */ progress) => {
                 if (progress >= 0) {
                     curProgress = progress;
                 } else {
-                    EventsOff(eventName);
+                    EventsOff(/** @type {string} */ (eventName));
                     showProgress = false;
                     disabled = false;
                 }
             })
-        } catch (err) {
+        } catch (/** @type {any} */ err) {
             toast("danger", err.toString());
         } finally {
             loading = false;
         }
     }
 
-    async function hashFile(op) {
+    async function hashFile(/** @type {string} */ op) {
         let fileName = inputFile.split("/").pop();
         loading = true;
 
@@ -129,7 +134,7 @@
             }
 
             return "success";
-        } catch (err) {
+        } catch (/** @type {any} */ err) {
             toast("danger", op + " " + fileName + ': ' + err.toString());
         } finally {
             loading = false;
@@ -143,17 +148,17 @@
             const pathName = await app.OpenFileDialog();
             if (pathName.length === 0) return;
             inputFile = pathName
-        } catch (err) {
+        } catch (/** @type {any} */ err) {
             toast("danger", err.toString());
         } finally {
             disabled = false;
         }
     }
 
-    function toggleSecret(e) {
+    function toggleSecret(/** @type {Event} */ e) {
         outputText = '';
 
-        if (["encrypt", "decrypt"].indexOf(e.target.value) >= 0) {
+        if (["encrypt", "decrypt"].indexOf(/** @type {HTMLInputElement} */ (e.target).value) >= 0) {
             showSecret = true;
             showOutput = false;
             return;
@@ -168,41 +173,17 @@
     })
 
     let encOpts = [
-        {
-            name: "加密",
-            value: "encrypt",
-        },
-        {
-            name: "md5",
-            value: "md5",
-        },
-        {
-            name: "sha1",
-            value: "sha1",
-        },
-        {
-            name: "sha224",
-            value: "sha224",
-        },
-        {
-            name: "sha256",
-            value: "sha256",
-        },
-        {
-            name: "sha384",
-            value: "sha384",
-        },
-        {
-            name: "sha512",
-            value: "sha512",
-        }
+        { name: "加密", value: "encrypt" },
+        { name: "md5", value: "md5" },
+        { name: "sha1", value: "sha1" },
+        { name: "sha224", value: "sha224" },
+        { name: "sha256", value: "sha256" },
+        { name: "sha384", value: "sha384" },
+        { name: "sha512", value: "sha512" },
     ]
 
     let decOpts = [
-        {
-            name: "解密",
-            value: "decrypt",
-        }
+        { name: "解密", value: "decrypt" },
     ];
 </script>
 
@@ -210,7 +191,7 @@
     <Label>编码</Label>
     <div class="flex flex-wrap gap-3">
         {#each encOpts as encOpt}
-            <Radio value={encOpt.value} bind:group={opt} on:change={toggleSecret}>{encOpt.name}</Radio>
+            <Radio value={encOpt.value} bind:group={opt} onchange={toggleSecret}>{encOpt.name}</Radio>
         {/each}
     </div>
 </div>
@@ -219,7 +200,7 @@
     <Label>解码</Label>
     <div class="flex flex-wrap gap-3">
         {#each decOpts as decOpt}
-            <Radio value={decOpt.value} bind:group={opt} on:change={toggleSecret}>{decOpt.name}</Radio>
+            <Radio value={decOpt.value} bind:group={opt} onchange={toggleSecret}>{decOpt.name}</Radio>
         {/each}
     </div>
 </div>
@@ -232,7 +213,7 @@
 {/if}
 
 <ButtonGroup class="w-full mb-3">
-    <Button class="flex-shrink-0" color="green" on:click={openFile}>
+    <Button class="flex-shrink-0" color="green" onclick={openFile}>
         {#if loading}
             <Spinner size="4" class="mr-3"/>
         {/if}
@@ -243,7 +224,7 @@
 
 <div class="mb-3">
     <Button
-        on:click={transform}
+        onclick={transform}
         disabled={!(!disabled && inputFile.length > 0)}
         color="blue" outline size="xs"
     >
@@ -257,20 +238,22 @@
 {#if showOutput}
     <Label>输出文本</Label>
     <Textarea id="outputText" bind:value={outputText}>
-        <div slot="footer" class="text-xs text-gray-500 dark:text-gray-100" >
-            <span class="text-red-500 dark:text-red-500">{outputLen}</span> chars
-        </div>
+        {#snippet footer()}
+            <div class="text-xs text-gray-500 dark:text-gray-100" >
+                <span class="text-red-500 dark:text-red-500">{outputLen}</span> chars
+            </div>
+        {/snippet}
     </Textarea>
 {/if}
 
 {#if showProgress }
-    <Progressbar bind:progress={curProgress} size="h-4" labelInside />
+    <Progressbar progress={curProgress} size="h-4" labelInside />
 {/if}
 
 <Modal bind:open={popupModal} size="xs" autoclose title="确认进行加密?">
     <div class="text-center">
         <h3 class="mb-5 text-lg font-normal text-gray-500 dark:text-gray-400">文件加密后丢失密钥将无法恢复,请做好备份</h3>
-        <Button size="xs" color="red" class="mr-2" on:click={transformEnc}>确认</Button>
+        <Button size="xs" color="red" class="mr-2" onclick={transformEnc}>确认</Button>
         <Button size="xs" color="alternative">放弃</Button>
     </div>
 </Modal>
