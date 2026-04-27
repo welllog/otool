@@ -139,14 +139,8 @@
         loading = true
 
         let files = pondRef.getFiles();
-        let imgFiles = [];
-        let filesName = '';
-        for (let i = 0; i < files.length; i++) {
-            if (acceptedFileTypes.includes(files[i].file.type)) {
-                imgFiles.push(files[i])
-                filesName += files[i].file.name + ','
-            }
-        }
+        let imgFiles = files.filter(/** @type {any} */ f => acceptedFileTypes.includes(f.file.type));
+        let filesName = imgFiles.map(/** @type {any} */ f => f.file.name).join(',') + ',';
 
         if (imgFiles.length === 0) {
             toast("danger", "没有支持的图片文件")
@@ -231,10 +225,7 @@
         reader.onloadend = function (e) {
             if (e.target?.readyState === FileReader.DONE) {
                 let buffer = new Uint8Array(/** @type {ArrayBuffer} */ (e.target?.result));
-                let body = [];
-                for (let i = 0; i < buffer.length; i++) {
-                    body.push(buffer[i]);
-                }
+                let body = Array.from(buffer);
                 let img = new srvs.ImageFile();
                 img.name = file.name
                 img.type = file.type
@@ -384,16 +375,16 @@
     </ButtonGroup>
 
     <div class="mb-3">
-        <Button outline color="blue" size="xs" onclick={transform} disabled={!(!disabled && filesNum > 0)}>
+        <Button outline color="blue" size="xs" onclick={transform} disabled={disabled || filesNum === 0}>
             {#if loading}
                 <Spinner size="4" class="mr-3"/>
             {/if}
             转换
         </Button>
-        <Button outline color="dark" size="xs" onclick={reset}  disabled={!(!disabled && filesNum > 0)}>
+        <Button outline color="dark" size="xs" onclick={reset}  disabled={disabled || filesNum === 0}>
             {#if filesNum < 2}恢复默认宽高{:else}采用首图宽高{/if}
         </Button>
-        <Button outline color="yellow" size="xs" onclick={cleanFiles} disabled={!(!disabled && filesNum > 0)}>
+        <Button outline color="yellow" size="xs" onclick={cleanFiles} disabled={disabled || filesNum === 0}>
             清空选中文件
         </Button>
     </div>

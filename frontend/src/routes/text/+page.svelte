@@ -4,8 +4,6 @@
     import Label from "$lib/Label.svelte";
     import { Textarea , Radio, Checkbox, Input, Button } from "flowbite-svelte";
 
-    let showSecret = $state(false);
-    let showHmac = $state(false);
     let checkHmac = $state(false);
     let inputText = $state('');
     let opt = $state('');
@@ -15,18 +13,8 @@
     let inputLen = $derived(inputText.length);
     let outputLen = $derived(outputText.length);
 
-    $effect(() => {
-        if (opt === 'opensslAesEnc' || opt === 'opensslAesDec') {
-            showSecret = true;
-            showHmac = false;
-        } else if (isHash(opt)) {
-            showSecret = false;
-            showHmac = true;
-        } else {
-            showSecret = false;
-            showHmac = false;
-        }
-    });
+    let showSecret = $derived(opt === 'opensslAesEnc' || opt === 'opensslAesDec');
+    let showHmac = $derived(isHash(opt));
 
     function transform() {
         let res;
@@ -132,7 +120,7 @@
     }
 
     function isHash(op = '') {
-        return ["md5", "sha1", "sha224", "sha256", "sha384", "sha512", "sha512_224", "sha512_256"].indexOf(op) >= 0;
+        return ["md5", "sha1", "sha224", "sha256", "sha384", "sha512", "sha512_224", "sha512_256"].includes(op);
     }
 
     let encOpts = [

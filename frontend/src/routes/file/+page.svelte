@@ -5,7 +5,7 @@
     import {onDestroy} from 'svelte';
     import { toast } from "$lib/ToastContainer.svelte";
     import Label from "$lib/Label.svelte";
-    import { Textarea , Radio, Input, Button, ButtonGroup, Spinner, Modal, Progressbar } from "flowbite-svelte";
+    import { Textarea , Radio, Input, InputAddon, Button, ButtonGroup, Spinner, Modal, Progressbar } from "flowbite-svelte";
 
     let loading = $state(false);
     let disabled = $state(false);
@@ -158,7 +158,7 @@
     function toggleSecret(/** @type {Event} */ e) {
         outputText = '';
 
-        if (["encrypt", "decrypt"].indexOf(/** @type {HTMLInputElement} */ (e.target).value) >= 0) {
+        if (["encrypt", "decrypt"].includes(/** @type {HTMLInputElement} */ (e.target).value)) {
             showSecret = true;
             showOutput = false;
             return;
@@ -219,13 +219,13 @@
         {/if}
         选择文件
     </Button>
-    <Input size="sm" bind:value={inputFile} disabled/>
+    <Input class="!rounded-l-none" bind:value={inputFile} disabled/>
 </ButtonGroup>
 
 <div class="mb-3">
     <Button
         onclick={transform}
-        disabled={!(!disabled && inputFile.length > 0)}
+        disabled={disabled || inputFile.length === 0}
         color="blue" outline size="xs"
     >
         {#if loading}
