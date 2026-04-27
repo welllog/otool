@@ -153,65 +153,103 @@
         { name: "小写", value: "lower" },
     ];
 </script>
-
-<div class="mb-3 mt-1">
-    <Label for="inputText">编解码文本</Label>
-    <Textarea id="inputText" bind:value={inputText} rows={4}>
-        {#snippet footer()}
-            <div class="text-xs text-gray-500 dark:text-gray-100" >
-                <span class="text-red-500 dark:text-red-500">{inputLen}</span> chars
+<div class="flex flex-col gap-4 max-w-5xl mx-auto py-4">
+    <!-- Input Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">源文本</h2>
             </div>
-        {/snippet}
-    </Textarea>
-</div>
+            <span class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md">
+                长度: <span class="font-mono text-primary-600 dark:text-primary-400 font-semibold">{inputLen}</span>
+            </span>
+        </div>
+        <Textarea id="inputText" bind:value={inputText} rows={6} class="w-full font-mono text-sm bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700" placeholder="请输入需要处理的文本..." />
+    </div>
 
-<div class="mb-3">
-    <Label>编码</Label>
-    <div class="flex flex-wrap gap-3">
-        {#each encOpts as encOpt}
-            <Radio value={encOpt.value} bind:group={opt}>{encOpt.name}</Radio>
-        {/each}
-        {#if showHmac}
-            <Checkbox bind:checked={checkHmac}>hmac</Checkbox>
+    <!-- Operations Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+        <div class="flex items-center gap-2 mb-6">
+            <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">操作配置</h2>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="p-4 bg-gray-50/50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-700">
+                <Label class="mb-4 text-gray-700 dark:text-gray-200 font-medium flex items-center gap-2">
+                    <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                    编码 / 加密 / 哈希
+                </Label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {#each encOpts as encOpt}
+                        <Radio value={encOpt.value} bind:group={opt} class="text-sm">{encOpt.name}</Radio>
+                    {/each}
+                </div>
+                {#if showHmac}
+                    <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <Checkbox bind:checked={checkHmac} class="text-primary-600">附加 HMAC 签名</Checkbox>
+                    </div>
+                {/if}
+            </div>
+
+            <div class="p-4 bg-gray-50/50 dark:bg-gray-900/50 rounded-lg border border-gray-100 dark:border-gray-700">
+                <Label class="mb-4 text-gray-700 dark:text-gray-200 font-medium flex items-center gap-2">
+                    <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                    解码 / 解密
+                </Label>
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {#each decOpts as decOpt}
+                        <Radio value={decOpt.value} bind:group={opt} class="text-sm">{decOpt.name}</Radio>
+                    {/each}
+                </div>
+            </div>
+        </div>
+
+        {#if showSecret || (showHmac && checkHmac)}
+            <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                <Label for="secretKey" class="mb-2 text-blue-800 dark:text-blue-300 font-medium">密钥 (Secret Key)</Label>
+                <Input size="md" type="text" bind:value={secretKey} id="secretKey" placeholder="请输入用于加密或签名的密钥..." class="w-full bg-white dark:bg-gray-800" />
+            </div>
         {/if}
+
+        <div class="mt-6 flex flex-col sm:flex-row gap-3 justify-end items-center pt-4 border-t border-gray-100 dark:border-gray-700">
+            <Button color="light" onclick={clean} class="w-full sm:w-auto dark:bg-gray-900 dark:hover:bg-gray-700">
+                清空数据
+            </Button>
+            <Button color="dark" outline onclick={replaceInput} class="w-full sm:w-auto border-gray-300 dark:border-gray-600">
+                将结果作为输入
+                <svg class="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                </svg>
+            </Button>
+            <Button color="primary" onclick={transform} class="w-full sm:w-auto px-8 shadow-md shadow-primary-500/30 text-white">
+                执行处理
+                <svg class="w-4 h-4 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            </Button>
+        </div>
     </div>
-</div>
 
-<div class="mb-3">
-    <Label>解码</Label>
-    <div class="flex flex-wrap gap-3">
-        {#each decOpts as decOpt}
-            <Radio value={decOpt.value} bind:group={opt}>{decOpt.name}</Radio>
-        {/each}
-    </div>
-</div>
-
-{#if showSecret || (showHmac && checkHmac)}
-    <div class="mb-3">
-        <Label for="secretKey">密钥</Label>
-        <Input size="sm" type="text" bind:value={secretKey} id="secretKey" />
-    </div>
-{/if}
-
-<div class="mb-3">
-    <Button onclick={transform} outline color="blue" size="xs">
-        转换
-    </Button>
-    <Button onclick={replaceInput} outline color="dark" size="xs">
-        输入替换
-    </Button>
-    <Button onclick={clean} outline color="yellow" size="xs">
-        清空
-    </Button>
-</div>
-
-<div>
-    <Label for="outputText">输出文本</Label>
-    <Textarea id="outputText" bind:value={outputText} rows={8}>
-        {#snippet footer()}
-            <div class="text-xs text-gray-500 dark:text-gray-100" >
-                <span class="text-red-500 dark:text-red-500">{outputLen}</span> chars
+    <!-- Output Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">处理结果</h2>
             </div>
-        {/snippet}
-    </Textarea>
+            <span class="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-md">
+                长度: <span class="font-mono text-primary-600 dark:text-primary-400 font-semibold">{outputLen}</span>
+            </span>
+        </div>
+        <Textarea id="outputText" bind:value={outputText} rows={8} class="w-full font-mono text-sm bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700" readonly placeholder="处理结果将在此处显示..." />
+    </div>
 </div>

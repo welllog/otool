@@ -139,8 +139,10 @@
         loading = true
 
         let files = pondRef.getFiles();
-        let imgFiles = files.filter(/** @type {any} */ f => acceptedFileTypes.includes(f.file.type));
-        let filesName = imgFiles.map(/** @type {any} */ f => f.file.name).join(',') + ',';
+        // @ts-ignore
+        let imgFiles = files.filter(f => acceptedFileTypes.includes(f.file.type));
+        // @ts-ignore
+        let filesName = imgFiles.map(f => f.file.name).join(',') + ',';
 
         if (imgFiles.length === 0) {
             toast("danger", "没有支持的图片文件")
@@ -245,147 +247,282 @@
     })
 </script>
 
-<div class="my-3">
-    <FilePondWrapper bind:this={pondRef}
-        allowMultiple={true}
-        onaddfile={handleAddFile}
-        onremovefile={handleRemoveFile}
-        {acceptedFileTypes}
-        labelFileTypeNotAllowed={'文件类型不支持'}
-        {disabled}
-    />
+<style>
+    /* 滑动条基础样式 */
+    .custom-range {
+        -webkit-appearance: none;
+        appearance: none;
+        display: block; /* 确保作为块级元素占满宽度 */
+        width: 100%;
+        min-width: 100px; /* 防止在极端情况下缩回圆形 */
+        height: 6px;
+        background: #e5e7eb;
+        border-radius: 999px;
+        outline: none;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+    /* 深色模式轨道 */
+    :global(.dark) .custom-range {
+        background: #374151;
+    }
+
+    /* Webkit 滑块 (macOS/Wails) */
+    .custom-range::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        background: #7c3aed; /* primary-600 */
+        border: 3px solid white;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        cursor: grab;
+        transition: all 0.2s;
+        /* 这里的 margin-top 需要根据轨道高度调整以居中 */
+        margin-top: -6px; 
+    }
+
+    .custom-range:active::-webkit-slider-thumb {
+        cursor: grabbing;
+        transform: scale(1.2);
+        box-shadow: 0 0 15px rgba(124, 58, 237, 0.5);
+    }
+
+    :global(.dark) .custom-range::-webkit-slider-thumb {
+        border-color: #1f2937;
+        background: #8b5cf6; /* primary-500 */
+    }
+
+    /* 悬停轨道 */
+    .custom-range:hover {
+        background: #d1d5db;
+    }
+    :global(.dark) .custom-range:hover {
+        background: #4b5563;
+    }
+
+    /* 禁用状态 */
+    .custom-range:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .custom-range:disabled::-webkit-slider-thumb {
+        cursor: not-allowed;
+    }
+</style>
+
+<div class="flex flex-col gap-4 max-w-5xl mx-auto py-4">
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+        <div class="flex items-center gap-2 mb-4">
+            <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">源图片</h2>
+        </div>
+        <FilePondWrapper bind:this={pondRef}
+            allowMultiple={true}
+            onaddfile={handleAddFile}
+            onremovefile={handleRemoveFile}
+            {acceptedFileTypes}
+            labelFileTypeNotAllowed={'文件类型不支持'}
+            {disabled}
+        />
+    </div>
+
+    {#if showProgress }
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+            <Progressbar progress={curProgress} size="h-4" labelInside />
+        </div>
+    {/if}
+
+    {#if filesNum > 0 }
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+                <div class="flex items-center gap-2 mb-4">
+                    <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">尺寸调整</h2>
+                </div>
+                
+                <div class="mb-4">
+                    <Label class="mb-2 text-gray-500 dark:text-gray-400 text-sm">缩略方式</Label>
+                    <Select size="sm" items={ops} bind:value={op} disabled={disabled} class="w-full bg-gray-50 dark:bg-gray-900"/>
+                </div>
+
+                {#if op > 0 && op < 7}
+                    <div class="grid grid-cols-2 gap-3">
+                        {#if op < 5}
+                            <div>
+                                <Label class="mb-2 text-gray-500 dark:text-gray-400 text-sm">宽 (px)</Label>
+                                <Input size="sm" bind:value={width} type="number" disabled={disabled} class="w-full bg-gray-50 dark:bg-gray-900" />
+                            </div>
+                        {/if}
+                        {#if op > 2}
+                            <div>
+                                <Label class="mb-2 text-gray-500 dark:text-gray-400 text-sm">高 (px)</Label>
+                                <Input size="sm" bind:value={height} type="number" disabled={disabled} class="w-full bg-gray-50 dark:bg-gray-900" />
+                            </div>
+                        {/if}
+                    </div>
+                {/if}
+
+                {#if op === 7}
+                    <div>
+                        <Label class="mb-2 text-gray-500 dark:text-gray-400 text-sm">缩放百分比 (%)</Label>
+                        <Input size="sm" bind:value={percent} type="number" disabled={disabled} class="w-full bg-gray-50 dark:bg-gray-900" />
+                    </div>
+                {/if}
+            </div>
+
+            <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5">
+                <div class="flex items-center gap-2 mb-4">
+                    <svg class="w-5 h-5 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <h2 class="text-lg font-semibold text-gray-900 dark:text-white">输出格式</h2>
+                </div>
+
+                <div class="mb-4">
+                    <Label class="mb-2 text-gray-500 dark:text-gray-400 text-sm">保存格式</Label>
+                    <div class="flex flex-wrap gap-4 p-2 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                        {#each encoders as e}
+                            <Radio value={e} bind:group={encoder} onchange={onchangeEncoder} disabled={disabled} class="!p-0">{e}</Radio>
+                        {/each}
+                    </div>
+                </div>
+
+                <div class="pt-4 mt-2 border-t border-gray-100 dark:border-gray-700">
+                    {#if encoder === 'jpg'}
+                        <div class="flex flex-col gap-2">
+                            <Label class="text-gray-500 dark:text-gray-400 text-sm">质量</Label>
+                            <div class="flex gap-4 items-center group">
+                                <div class="flex-1 py-3">
+                                    <input type="range" bind:value={jpgQuality} min="1" max="100" disabled={disabled}
+                                        class="custom-range" />
+                                </div>
+                                <Input class="w-20 text-center font-medium bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 focus:border-primary-500" bind:value={jpgQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
+                            </div>
+                        </div>
+                    {:else if encoder === 'gif'}
+                        <div class="flex flex-col gap-4">
+                            <div class="flex flex-col gap-2">
+                                <Label class="text-gray-500 dark:text-gray-400 text-sm">色彩数量</Label>
+                                <div class="flex gap-4 items-center group">
+                                    <div class="flex-1 py-3">
+                                        <input type="range" bind:value={gifNumColors} min="1" max="256" disabled={disabled}
+                                            class="custom-range" />
+                                    </div>
+                                    <Input class="w-20 text-center font-medium bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 focus:border-primary-500" bind:value={gifNumColors} size="sm" type="number" min="1" max="256" disabled={disabled} />
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <Label class="text-gray-500 dark:text-gray-400 text-sm">抽帧</Label>
+                                <Select size="sm" items={frameOps} bind:value={gifDropRate} disabled={disabled} class="bg-gray-50 dark:bg-gray-900"/>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <Checkbox bind:checked={gifDrawOnBefore} disabled={disabled}>前一帧上绘制</Checkbox>
+                                <span class="text-xs text-gray-400 ml-6">(仅对原始图片为gif时有效)</span>
+                            </div>
+                        </div>
+                    {:else if encoder === 'webp'}
+                        <div class="flex flex-col gap-4">
+                            {#if !webpLossless}
+                            <div class="flex flex-col gap-2">
+                                <Label class="text-gray-500 dark:text-gray-400 text-sm">质量</Label>
+                                <div class="flex gap-4 items-center group">
+                                    <div class="flex-1 py-3">
+                                        <input type="range" bind:value={webpQuality} min="1" max="100" disabled={disabled}
+                                            class="custom-range" />
+                                    </div>
+                                    <Input class="w-20 text-center font-medium bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 focus:border-primary-500" bind:value={webpQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
+                                </div>
+                            </div>
+                            {/if}
+                            <div class="flex flex-col gap-2">
+                                <Checkbox bind:checked={webpLossless} disabled={disabled}>无损</Checkbox>
+                                {#if webpLossless}
+                                <Checkbox class="ml-6" bind:checked={webpRgbInTransparent} disabled={disabled}>保留透明区域rgb</Checkbox>
+                                {/if}
+                            </div>
+                        </div>
+                    {:else if encoder === 'png'}
+                        <div class="flex flex-col gap-2">
+                            <Label class="text-gray-500 dark:text-gray-400 text-sm">压缩等级</Label>
+                            <div class="flex flex-col gap-2 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                                {#each pngCompress as pc}
+                                    <Radio value={pc.value} bind:group={pngCompression} disabled={disabled} class="!p-0">{pc.name}</Radio>
+                                {/each}
+                            </div>
+                        </div>
+                    {:else if encoder === 'avif'}
+                        <div class="flex flex-col gap-4">
+                            <div class="flex flex-col gap-2">
+                                <Label class="text-gray-500 dark:text-gray-400 text-sm">质量</Label>
+                                <div class="flex gap-4 items-center group">
+                                    <div class="flex-1 py-3">
+                                        <input type="range" bind:value={avifQuality} min="1" max="100" disabled={disabled}
+                                            class="custom-range" />
+                                    </div>
+                                    <Input class="w-20 text-center font-medium bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 focus:border-primary-500" bind:value={avifQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <Label class="text-gray-500 dark:text-gray-400 text-sm">alpha通道质量</Label>
+                                <div class="flex gap-4 items-center group">
+                                    <div class="flex-1 py-3">
+                                        <input type="range" bind:value={avifQualityAlpha} min="1" max="100" disabled={disabled}
+                                            class="custom-range" />
+                                    </div>
+                                    <Input class="w-20 text-center font-medium bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 focus:border-primary-500" bind:value={avifQualityAlpha} size="sm" type="number" min="1" max="100" disabled={disabled} />
+                                </div>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <Label class="text-gray-500 dark:text-gray-400 text-sm">速度</Label>
+                                <div class="flex gap-4 items-center group">
+                                    <div class="flex-1 py-3">
+                                        <input type="range" bind:value={avifSpeed} min="1" max="10" disabled={disabled}
+                                            class="custom-range" />
+                                    </div>
+                                    <Input class="w-20 text-center font-medium bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 focus:border-primary-500" bind:value={avifSpeed} size="sm" type="number" min="1" max="10" disabled={disabled} />
+                                </div>
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-5 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div class="w-full md:w-3/5 flex flex-col gap-2">
+                <Label class="text-gray-500 dark:text-gray-400 text-sm">保存目录</Label>
+                <ButtonGroup class="w-full">
+                    <!-- svelte-ignore a11y_click_events_have_key_events -->
+                    <!-- svelte-ignore a11y_no_static_element_interactions -->
+                    <InputAddon class="flex-shrink-0 cursor-pointer bg-primary-600 text-white hover:bg-primary-700 border-primary-600 transition-colors" onclick={openFolder}>
+                        选择目录
+                    </InputAddon>
+                    <Input bind:value={outPath} class="w-full !rounded-l-none bg-gray-50 dark:bg-gray-900" disabled/>
+                </ButtonGroup>
+            </div>
+            
+            <div class="w-full md:w-auto flex flex-col sm:flex-row gap-3 md:pt-6">
+                <Button color="light" onclick={reset} disabled={disabled || filesNum === 0} class="w-full sm:w-auto dark:bg-gray-900 dark:hover:bg-gray-700">
+                    {#if filesNum < 2}恢复默认宽高{:else}首图宽高{/if}
+                </Button>
+                <Button color="red" outline onclick={cleanFiles} disabled={disabled || filesNum === 0} class="w-full sm:w-auto">
+                    清空列表
+                </Button>
+                <Button color="primary" onclick={transform} disabled={disabled || filesNum === 0} class="w-full sm:w-auto px-6 shadow-md shadow-primary-500/30">
+                    {#if loading}
+                        <Spinner size="4" class="mr-2"/>
+                    {/if}
+                    开始转换
+                </Button>
+            </div>
+        </div>
+    {/if}
 </div>
-
-{#if showProgress }
-    <div class="mb-3">
-        <Progressbar progress={curProgress} size="h-4" labelInside />
-    </div>
-{/if}
-
-{#if filesNum > 0 }
-    <ButtonGroup class="w-full mb-3">
-        <InputAddon class="flex-shrink-0">缩略方式</InputAddon>
-        <Select size="sm" items={ops} bind:value={op} class="!rounded-l-none" disabled={disabled}/>
-    </ButtonGroup>
-
-    {#if op > 0 && op < 7}
-        <div class="mb-3 grid gap-1 md:grid-cols-2">
-            {#if op < 5}
-                <ButtonGroup>
-                    <InputAddon>宽</InputAddon>
-                    <Input size="sm" bind:value={width} type="number" disabled={disabled}  />
-                    <InputAddon>px</InputAddon>
-                </ButtonGroup>
-            {/if}
-            {#if op > 2}
-                <ButtonGroup>
-                    <InputAddon>高</InputAddon>
-                    <Input size="sm" bind:value={height} type="number" disabled={disabled}  />
-                    <InputAddon>px</InputAddon>
-                </ButtonGroup>
-            {/if}
-        </div>
-    {/if}
-
-    {#if op === 7}
-        <div class="mb-3">
-            <ButtonGroup class="w-full">
-                <InputAddon class="flex-shrink-0">缩放百分比</InputAddon>
-                <Input size="sm" bind:value={percent} type="number" disabled={disabled}  />
-                <InputAddon>%</InputAddon>
-            </ButtonGroup>
-        </div>
-    {/if}
-
-    <div class="mb-3 flex flex-wrap gap-4">
-        <Label>保存格式:</Label>
-        {#each encoders as e}
-            <Radio value={e} bind:group={encoder} onchange={onchangeEncoder}>{e}</Radio>
-        {/each}
-    </div>
-
-    {#if encoder === 'jpg'}
-        <div class="flex mb-3 gap-2 items-center">
-            <Label>质量:</Label>
-            <Range class="w-auto" bind:value={jpgQuality} min="1" max="100" disabled={disabled} />
-            <Input class="w-fit" bind:value={jpgQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
-        </div>
-    {:else if encoder === 'gif'}
-        <div class="flex mb-3 gap-2 items-center">
-            <Label>色彩数量:</Label>
-            <Range class="w-auto" bind:value={gifNumColors} min="1" max="256" disabled={disabled} />
-            <Input class="w-fit" bind:value={gifNumColors} size="sm" type="number" min="1" max="256" disabled={disabled} />
-        </div>
-        <div class="row mb-3 flex gap-2 items-center">
-            <ButtonGroup class="w-auto">
-                <InputAddon class="flex-shrink-0">抽帧</InputAddon>
-                <Select size="sm" items={frameOps} bind:value={gifDropRate} class="!rounded-l-none" disabled={disabled}/>
-            </ButtonGroup>
-            <Checkbox bind:checked={gifDrawOnBefore}  disabled={disabled}>前一帧上绘制</Checkbox>
-            <Label>(仅对原始图片为gif时有效)</Label>
-        </div>
-    {:else if encoder === 'webp'}
-        <div class="flex mb-3 gap-2 items-center">
-            {#if !webpLossless}
-            <Label>质量:</Label>
-            <Range class="w-auto" bind:value={webpQuality} min="1" max="100" disabled={disabled} />
-            <Input class="w-fit" bind:value={webpQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
-            {/if}
-            <Checkbox bind:checked={webpLossless}  disabled={disabled}>无损</Checkbox>
-            {#if webpLossless}
-            <Checkbox bind:checked={webpRgbInTransparent}  disabled={disabled}>保留透明区域rgb</Checkbox>
-            {/if}
-        </div>
-    {:else if encoder === 'png'}
-        <div class="mb-3 flex flex-wrap gap-4">
-            <Label>压缩等级:</Label>
-            {#each pngCompress as pc}
-                <Radio value={pc.value} bind:group={pngCompression} disabled={disabled}>{pc.name}</Radio>
-            {/each}
-        </div>
-    {:else if encoder === 'avif'}
-        <div class="flex flex-wrap mb-3 gap-4">
-            <div class="flex items-center">
-                <Label>质量:</Label>
-                <Range class="w-auto" bind:value={avifQuality} min="1" max="100" disabled={disabled} />
-                <Input class="w-fit" bind:value={avifQuality} size="sm" type="number" min="1" max="100" disabled={disabled} />
-            </div>
-
-            <div class="flex items-center">
-                <Label>alpha通道质量:</Label>
-                <Range class="w-auto" bind:value={avifQualityAlpha} min="1" max="100" disabled={disabled} />
-                <Input class="w-fit" bind:value={avifQualityAlpha} size="sm" type="number" min="1" max="100" disabled={disabled} />
-            </div>
-
-            <div class="flex items-center">
-                <Label>速度:</Label>
-                <Range class="w-auto" bind:value={avifSpeed} min="1" max="10" disabled={disabled} />
-                <Input class="w-fit" bind:value={avifSpeed} size="sm" type="number" min="1" max="10" disabled={disabled} />
-            </div>
-        </div>
-    {/if}
-
-    <ButtonGroup class="w-full mb-3">
-        <!-- svelte-ignore a11y_click_events_have_key_events -->
-        <!-- svelte-ignore a11y_no_static_element_interactions -->
-        <InputAddon class="flex-shrink-0 cursor-pointer bg-green-500 text-white hover:bg-green-600 border-green-600" onclick={openFolder}>
-            选择保存目录
-        </InputAddon>
-        <Input bind:value={outPath} class="!rounded-l-none" disabled/>
-    </ButtonGroup>
-
-    <div class="mb-3">
-        <Button outline color="blue" size="xs" onclick={transform} disabled={disabled || filesNum === 0}>
-            {#if loading}
-                <Spinner size="4" class="mr-3"/>
-            {/if}
-            转换
-        </Button>
-        <Button outline color="dark" size="xs" onclick={reset}  disabled={disabled || filesNum === 0}>
-            {#if filesNum < 2}恢复默认宽高{:else}采用首图宽高{/if}
-        </Button>
-        <Button outline color="yellow" size="xs" onclick={cleanFiles} disabled={disabled || filesNum === 0}>
-            清空选中文件
-        </Button>
-    </div>
-{/if}

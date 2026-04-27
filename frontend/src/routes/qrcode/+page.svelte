@@ -126,71 +126,113 @@
     }
 </script>
 
-<Tabs tabStyle="underline">
-    <TabItem open title="二维码解析">
-        <Dropzone
-            id="dropzone"
-            ondrop={handleDrop}
-            ondragover={handleDragOver}
-            onchange={handleChange}
-            disabled={disabled}
-        >
-            <svg aria-hidden="true" class="mb-3 w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-            {#if fileName.length === 0}
-                <p class="mb-2 text-sm text-gray-500 dark:text-gray-400"><span class="font-semibold">Click to upload</span> or drag and drop</p>
-                <p class="text-xs text-gray-500 dark:text-gray-400">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
-            {:else}
-                <p>{fileName}</p>
-            {/if}
-        </Dropzone>
-        <div class="mb-3 w-full">
-            <Label class="mb-2">解析结果</Label>
-            <Textarea class="w-full" bind:value={text} disabled/>
-        </div>
-    </TabItem>
-    <TabItem title="生成二维码">
-        <div class="mb-3 w-full">
-            <Label class="mb-2">二维码内容</Label>
-            <Textarea class="w-full" bind:value={text} disabled={disabled} />
-        </div>
+<div class="flex flex-col gap-6 max-w-4xl mx-auto py-8">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-2 sm:p-6">
+        <Tabs tabStyle="underline" contentClass="p-4 mt-4 bg-transparent">
+            <!-- Decode Tab -->
+            <TabItem open title="二维码解析">
+                
+                <div class="flex flex-col gap-6">
+                    <div class="w-full">
+                        <Dropzone
+                            id="dropzone"
+                            ondrop={handleDrop}
+                            ondragover={handleDragOver}
+                            onchange={handleChange}
+                            disabled={disabled}
+                            class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors py-12"
+                        >
+                            <svg aria-hidden="true" class="mb-4 w-12 h-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                            {#if fileName.length === 0}
+                                <p class="mb-2 text-base text-gray-600 dark:text-gray-300"><span class="font-semibold text-primary-600 dark:text-primary-400">点击选择图片</span> 或将图片拖拽到此处</p>
+                                <p class="text-sm text-gray-500 dark:text-gray-500">支持 PNG, JPG, WEBP, GIF 等常用图片格式</p>
+                            {:else}
+                                <div class="flex flex-col items-center gap-2">
+                                    <div class="p-3 bg-green-100 dark:bg-green-900/30 rounded-full text-green-600 dark:text-green-400">
+                                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                    </div>
+                                    <p class="font-medium text-gray-800 dark:text-gray-200">{fileName}</p>
+                                </div>
+                            {/if}
+                        </Dropzone>
+                    </div>
 
-        <div class="mb-3">
-            <Label>容错率</Label>
-            <div class="flex flex-wrap gap-3">
-                {#each recoverOptions as op}
-                    <Radio value={op.value} bind:group={recover}>{op.name}</Radio>
-                {/each}
-            </div>
-        </div>
+                    <div class="w-full">
+                        <Label class="mb-3 text-gray-700 dark:text-gray-300 font-medium">解析结果</Label>
+                        <Textarea class="w-full font-mono text-sm bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 rounded-xl" bind:value={text} rows={6} disabled placeholder="解析结果将在此处显示..."/>
+                    </div>
+                </div>
+            </TabItem>
 
-        <div class="mb-3">
-            <Label>尺寸</Label>
-            <ButtonGroup class="w-full">
-                <Input size="sm" type="number" bind:value={size} />
-                <InputAddon>px</InputAddon>
-            </ButtonGroup>
-        </div>
+            <!-- Encode Tab -->
+            <TabItem title="生成二维码">
+                
+                <div class="flex flex-col gap-6">
+                    <div>
+                        <Label class="mb-3 text-gray-700 dark:text-gray-300 font-medium">二维码内容</Label>
+                        <Textarea class="w-full font-mono text-sm bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 rounded-xl" bind:value={text} disabled={disabled} rows={4} placeholder="请输入要生成二维码的文本、链接..."/>
+                    </div>
 
-        <div class="mb-3">
-            <ButtonGroup class="mb-3 w-full">
-                <!-- svelte-ignore a11y_click_events_have_key_events -->
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <InputAddon class="flex-shrink-0 cursor-pointer bg-green-500 text-white hover:bg-green-600 border-green-600" onclick={openFolder}>
-                    选择保存目录
-                </InputAddon>
-                <Input bind:value={outPath} class="!rounded-l-none" disabled/>
-            </ButtonGroup>
-        </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="p-5 bg-gray-50/50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700">
+                            <Label class="mb-4 text-gray-700 dark:text-gray-300 font-medium flex items-center gap-2">
+                                <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                                容错率
+                            </Label>
+                            <div class="grid grid-cols-2 gap-y-3">
+                                {#each recoverOptions as op}
+                                    <Radio value={op.value} bind:group={recover} class="text-sm">{op.name}</Radio>
+                                {/each}
+                            </div>
+                        </div>
 
-        <Button
-            onclick={genQrcode}
-            disabled={disabled}
-            color="blue" outline size="xs"
-        >
-            {#if loading}
-                <Spinner size="4" class="mr-3"/>
-            {/if}
-            生成二维码
-        </Button>
-    </TabItem>
-</Tabs>
+                        <div class="p-5 bg-gray-50/50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700">
+                            <Label class="mb-4 text-gray-700 dark:text-gray-300 font-medium flex items-center gap-2">
+                                <div class="w-1.5 h-1.5 rounded-full bg-purple-500"></div>
+                                尺寸设置
+                            </Label>
+                            <ButtonGroup class="w-full pt-1">
+                                <Input size="sm" type="number" bind:value={size} class="w-full bg-white dark:bg-gray-800 text-center font-mono" />
+                                <InputAddon class="bg-gray-100 dark:bg-gray-700 px-4">px</InputAddon>
+                            </ButtonGroup>
+                        </div>
+                    </div>
+
+                    <div class="p-5 bg-gray-50/50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <Label class="mb-4 text-gray-700 dark:text-gray-300 font-medium flex items-center gap-2">
+                            <div class="w-1.5 h-1.5 rounded-full bg-green-500"></div>
+                            保存位置
+                        </Label>
+                        <ButtonGroup class="w-full">
+                            <!-- svelte-ignore a11y_click_events_have_key_events -->
+                            <!-- svelte-ignore a11y_no_static_element_interactions -->
+                            <InputAddon class="flex-shrink-0 cursor-pointer bg-primary-600 text-white hover:bg-primary-700 border-none transition-colors px-6" onclick={openFolder}>
+                                选择目录
+                            </InputAddon>
+                            <Input bind:value={outPath} class="w-full !rounded-l-none bg-white dark:bg-gray-800" disabled/>
+                        </ButtonGroup>
+                    </div>
+
+                    <div class="flex justify-center mt-4 mb-2">
+                        <Button
+                            onclick={genQrcode}
+                            disabled={disabled || text.length === 0}
+                            color="primary" class="px-12 py-3 shadow-xl shadow-primary-500/20 text-white rounded-full flex items-center gap-2 transition-transform hover:scale-105 bg-gradient-to-r from-primary-600 to-primary-500 border-none"
+                        >
+                            {#if loading}
+                                <Spinner size="4" class="mr-2"/>
+                            {:else}
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                            {/if}
+                            <span class="text-base font-semibold tracking-wide">生成并保存</span>
+                        </Button>
+                    </div>
+                </div>
+            </TabItem>
+        </Tabs>
+    </div>
+</div>
