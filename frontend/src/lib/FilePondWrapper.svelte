@@ -1,5 +1,5 @@
 <script>
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
 
     let {
         allowMultiple = false,
@@ -14,8 +14,11 @@
     let inputEl;
     /** @type {any} */
     let pond;
+    let isMounted = false;
 
     onMount(async () => {
+        isMounted = true;
+
         const { create, registerPlugin } = await import('filepond');
         const FilePondPluginImageExifOrientation = (await import('filepond-plugin-image-exif-orientation')).default;
         const FilePondPluginImagePreview = (await import('filepond-plugin-image-preview')).default;
@@ -23,6 +26,8 @@
 
         await import('filepond/dist/filepond.min.css');
         await import('filepond-plugin-image-preview/dist/filepond-plugin-image-preview.min.css');
+
+        if (!isMounted) return;
 
         registerPlugin(
             FilePondPluginImageExifOrientation,
@@ -34,6 +39,7 @@
             allowMultiple,
             acceptedFileTypes: acceptedFileTypes.length > 0 ? acceptedFileTypes : undefined,
             labelFileTypeNotAllowed,
+            disabled,
             files: [],
             onaddfile: (err, fileItem) => {
                 if (onaddfile) onaddfile(err, fileItem);
@@ -42,6 +48,20 @@
                 if (onremovefile) onremovefile(err, fileItem);
             },
         });
+    });
+
+    onDestroy(() => {
+        isMounted = false;
+        if (pond) {
+            pond.destroy();
+            pond = null;
+        }
+    });
+
+    $effect(() => {
+        if (pond) {
+            pond.setOptions({ disabled });
+        }
     });
 
     export function getFiles() {
@@ -53,4 +73,4 @@
     }
 </script>
 
-<input type="file" bind:this={inputEl} />
+<input type="file" bind:this={inputEl} {disabled} />
