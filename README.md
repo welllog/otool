@@ -5,10 +5,6 @@
 otool 是一个文本、文件加解密，数字进制转换、图片转换、二维码工具，支持多种加密算法，支持多种图片格式转换，支持二维码解析以及生成。
 
 ![p1](./pic/1.jpg)
-![p2](./pic/2.jpg)
-![p3](./pic/3.jpg)
-![p4](./pic/4.jpg)
-![p5](./pic/5.jpg)
 
 ### 构建命令
 * windows amd64: `wails build -platform=windows/amd64`

@@ -1,43 +1,35 @@
 <script>
-    import { Toast } from 'flowbite-svelte';
-
     let {
         type = 'primary',
         message = 'This is a toast message',
     } = $props();
 
-    const colors = new Map([
-        ['success', 'green'],
-        ['danger', 'red'],
-        ['warning', 'orange'],
-        ['info', 'yellow'],
-        ['primary', 'blue'],
-        ['normal', 'gray'],
-    ]);
+    const styles = {
+        success: 'border-green-500/20 text-green-700 dark:text-green-300 bg-green-500/10',
+        danger: 'border-red-500/20 text-red-700 dark:text-red-300 bg-red-500/10',
+        warning: 'border-orange-500/20 text-orange-700 dark:text-orange-300 bg-orange-500/10',
+        info: 'border-blue-500/20 text-blue-700 dark:text-blue-300 bg-blue-500/10',
+        primary: 'border-primary-500/20 text-primary-700 dark:text-primary-300 bg-primary-500/10',
+        normal: 'border-gray-500/20 text-gray-700 dark:text-gray-300 bg-gray-500/10',
+    };
 
-    /** @type {any} */
-    let currentColor = $derived(colors.get(type) || 'blue');
+    /** @type {string} */
+    let currentStyle = $derived(styles[type] || styles.primary);
 </script>
 
-{#snippet iconSlot()}
-    {#if type === 'success'}
-        <svg class="fill-green-500 dark:fill-green-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM11.0026 16L18.0737 8.92893L16.6595 7.51472L11.0026 13.1716L8.17421 10.3431L6.75999 11.7574L11.0026 16Z"></path></svg>
-    {:else if type === 'danger'}
-        <svg class="fill-red-500 dark:fill-red-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 10.5858L9.17157 7.75736L7.75736 9.17157L10.5858 12L7.75736 14.8284L9.17157 16.2426L12 13.4142L14.8284 16.2426L16.2426 14.8284L13.4142 12L16.2426 9.17157L14.8284 7.75736L12 10.5858Z"></path></svg>
-    {:else if type === 'warning'}
-        <svg class="fill-orange-500 dark:fill-orange-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM11 15V17H13V15H11ZM11 7V13H13V7H11Z"></path></svg>
-    {:else if type === 'info'}
-        <svg class="fill-yellow-500 dark:fill-yellow-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM11 7H13V9H11V7ZM11 11H13V17H11V11Z"></path></svg>
-    {:else if type === 'primary'}
-        <svg class="fill-blue-500 dark:fill-blue-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM11 7H13V9H11V7ZM11 11H13V17H11V11Z"></path></svg>
-    {:else}
-        <svg class="fill-gray-500 dark:fill-gray-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18"><path d="M12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22ZM12 20C16.4183 20 20 16.4183 20 12C20 7.58172 16.4183 4 12 4C7.58172 4 4 7.58172 4 12C4 16.4183 7.58172 20 12 20ZM11 7H13V9H11V7ZM11 11H13V17H11V11Z"></path></svg>
-    {/if}
-{/snippet}
-
-<Toast color={currentColor} class="w-full max-w-md p-4 text-gray-500 bg-white shadow dark:text-gray-400 dark:bg-gray-800 gap-3">
-    {#snippet icon()}
-        {@render iconSlot()}
-    {/snippet}
-    {message}
-</Toast>
+<div class="flex items-center gap-4 px-5 py-4 rounded-2xl border backdrop-blur-xl shadow-2xl {currentStyle} pointer-events-auto">
+    <div class="flex-shrink-0">
+        {#if type === 'success'}
+            <svg class="w-6 h-6 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        {:else if type === 'danger'}
+            <svg class="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        {:else if type === 'warning'}
+            <svg class="w-6 h-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        {:else}
+            <svg class="w-6 h-6 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        {/if}
+    </div>
+    <div class="flex-1 text-sm font-semibold tracking-tight">
+        {message}
+    </div>
+</div>
