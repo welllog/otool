@@ -25,6 +25,7 @@
   "type": "module",
   "dependencies": {
     "@types/node": "^20.8.8",
+    "cropperjs": "^1.6.2",
     "filepond": "^4.30.4",
     "filepond-plugin-file-validate-type": "^1.2.8",
     "filepond-plugin-image-exif-orientation": "^1.0.11",

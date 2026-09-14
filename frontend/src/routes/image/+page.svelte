@@ -1,5 +1,6 @@
 <script>
     import FilePondWrapper from '$lib/FilePondWrapper.svelte';
+    import ImageCropModal from '$lib/ImageCropModal.svelte';
     import md5 from 'md5';
 
     import * as image from "wjs/go/srvs/Image"
@@ -36,12 +37,16 @@
     let avifQuality = $state(60);
     let avifQualityAlpha = $state(60);
     let avifSpeed = $state(10);
+    let avifEncoder = $state('auto');
 
     let disabled = $state(false);
     let loading = $state(false);
     let curProgress = $state(0);
     let progressClose = () => {};
     let showProgress = $state(false);
+    let cropTarget = $state(null); // 正在裁剪的文件项
+    /** @type {{ x: number, y: number, width: number, height: number } | null} */
+    let cropRect = $state(null);   // 自由裁剪选区（原图像素）
 
     onMount(() => {
         app.DefaultPath().then((path) => {outPath = path})
@@ -93,6 +98,7 @@
         { name: '固定宽高裁剪', value: 3 },
         { name: '最大宽高缩放', value: 4 },
         { name: '固定高度缩放', value: 5 },
+        { name: '自定义裁剪', value: 8 },
         { name: '最大高度缩放', value: 6 },
         { name: '按百分比缩放', value: 7 },
     ]
@@ -104,6 +110,12 @@
         { name: '不压缩', value: -1 },
         { name: '速度优先', value: -2 },
         { name: '压缩优先', value: -3 },
+    ]
+
+    const avifEncoders = [
+        { name: '自动', value: 'auto' },
+        { name: '快速 (gav1d)', value: 'gav1d' },
+        { name: '高质量 (libavif)', value: 'libavif' },
     ]
 
     const frameOps = [
@@ -121,7 +133,25 @@
         width = firstWidth;
         height = firstHeight;
         percent = 100;
+        cropRect = null;
         toast('success', '已恢复初始宽高配置');
+    }
+
+    function openCrop() {
+        const files = pondRef.getFiles();
+        // @ts-ignore
+        const imgFiles = files.filter(f => acceptedFileTypes.includes(f.file.type));
+        if (imgFiles.length !== 1) {
+            toast("warning", "自由裁剪仅支持单文件");
+            return;
+        }
+        cropTarget = imgFiles[0];
+    }
+
+    function handleCropConfirm(/** @type {any} */ rect) {
+        cropRect = rect;
+        cropTarget = null;
+        toast('success', '裁剪区域已设置');
     }
 
     async function openFolder() {
@@ -161,6 +191,22 @@
             return;
         }
 
+        const rect = op === 8 ? cropRect : null;
+        if (op === 8) {
+            if (imgFiles.length !== 1) {
+                toast("warning", "自由裁剪仅支持单文件，请只保留一张图片");
+                disabled = false;
+                loading = false;
+                return;
+            }
+            if (!rect) {
+                toast("warning", '请先点击"选择裁剪区域"设置选区');
+                disabled = false;
+                loading = false;
+                return;
+            }
+        }
+
         let opts = new srvs.ImageOptions({
             op: Number(op),
             encoder: encoder,
@@ -179,6 +225,11 @@
             avifQuality: Number(avifQuality),
             avifQualityAlpha: Number(avifQualityAlpha),
             avifSpeed: Number(avifSpeed),
+            avifEncoder,
+            cropX: rect?.x ?? 0,
+            cropY: rect?.y ?? 0,
+            cropWidth: rect?.width ?? 0,
+            cropHeight: rect?.height ?? 0,
         });
 
         filesName += Math.round(Math.random() * 10000)
@@ -226,6 +277,7 @@
                 avifQuality = 60
                 avifQualityAlpha = 60
                 avifSpeed = 10
+                avifEncoder = 'auto'
         }
     }
 
@@ -254,6 +306,8 @@
         filesNum = 0;
         firstWidth = 0;
         firstHeight = 0;
+        cropRect = null;
+        cropTarget = null;
     }
 
     onDestroy(() => {
@@ -266,7 +320,7 @@
     .custom-range {
         -webkit-appearance: none;
         appearance: none;
-        display: block; 
+        display: block;
         width: 100%;
         min-width: 100px;
         height: 6px;
@@ -286,13 +340,13 @@
         appearance: none;
         width: 18px;
         height: 18px;
-        background: #7c3aed; 
+        background: #7c3aed;
         border: 3px solid white;
         border-radius: 50%;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         cursor: grab;
         transition: all 0.2s;
-        margin-top: -6px; 
+        margin-top: -6px;
     }
 
     .custom-range:active::-webkit-slider-thumb {
@@ -303,7 +357,7 @@
 
     :global(.dark) .custom-range::-webkit-slider-thumb {
         border-color: #1f2937;
-        background: #8b5cf6; 
+        background: #8b5cf6;
     }
 
     .custom-range:hover {
@@ -324,8 +378,8 @@
 
 <div class="flex flex-col gap-6 max-w-6xl mx-auto py-6">
     <!-- Source Image Card -->
-    <Card 
-        title="源图片" 
+    <Card
+        title="源图片"
         icon={`<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`}
         delay={0}
     >
@@ -357,8 +411,8 @@
     {#if filesNum > 0 }
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
             <!-- Resize Card -->
-            <Card 
-                title="尺寸调整" 
+            <Card
+                title="尺寸调整"
                 icon={`<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>`}
                 delay={100}
                 class="flex flex-col"
@@ -368,7 +422,7 @@
                         <Label class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">缩略模式</Label>
                         <Select size="md" items={ops} bind:value={op} disabled={disabled} class="w-full bg-gray-50/50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800 rounded-xl"/>
                     </div>
-                    
+
                     {#if op > 0 && op < 7}
                         <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50 dark:border-gray-800">
                             {#if op < 5}
@@ -392,12 +446,43 @@
                             <Input size="lg" bind:value={percent} type="number" disabled={disabled} class="w-full bg-primary-50/20 dark:bg-primary-900/10 border-primary-100/50 dark:border-primary-900/20 font-mono text-center text-primary-600 dark:text-primary-400" />
                         </div>
                     {/if}
+
+                    {#if op === 8}
+                        <div class="pt-4 border-t border-gray-50 dark:border-gray-800 space-y-4">
+                            <Label class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">裁剪选区</Label>
+                            {#if filesNum !== 1}
+                                <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-400">
+                                    自由裁剪仅支持单文件，请清空列表后只保留一张图片。
+                                </div>
+                            {:else}
+                                <div class="p-3 bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl space-y-3">
+                                    {#if cropRect}
+                                        <div class="text-xs font-mono text-gray-600 dark:text-gray-300">
+                                            选区：{cropRect.width} × {cropRect.height}　起点 ({cropRect.x}, {cropRect.y})
+                                        </div>
+                                    {:else}
+                                        <div class="text-xs font-bold text-gray-400">尚未设置裁剪区域</div>
+                                    {/if}
+                                    <div class="flex gap-2">
+                                        <Button size="sm" color="primary" onclick={openCrop} disabled={disabled || filesNum !== 1} class="rounded-xl px-5 bg-primary-600 hover:bg-primary-700 border-none">
+                                            {cropRect ? '重新选择' : '选择裁剪区域'}
+                                        </Button>
+                                        {#if cropRect}
+                                            <Button size="sm" color="light" onclick={() => { cropRect = null; }} disabled={disabled} class="rounded-xl border-gray-200 dark:border-gray-700">
+                                                清除
+                                            </Button>
+                                        {/if}
+                                    </div>
+                                </div>
+                            {/if}
+                        </div>
+                    {/if}
                 </div>
             </Card>
 
             <!-- Encoder Card -->
-            <Card 
-                title="参数配置" 
+            <Card
+                title="参数配置"
                 icon={`<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>`}
                 delay={200}
                 class="flex flex-col"
@@ -407,10 +492,10 @@
                         <Label class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4">输出保存格式</Label>
                         <div class="flex flex-wrap gap-3">
                             {#each encoders as e}
-                                <button 
+                                <button
                                     class="flex items-center px-4 py-2 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-tight
-                                    {encoder === e 
-                                        ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20' 
+                                    {encoder === e
+                                        ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20'
                                         : 'bg-gray-50/50 dark:bg-gray-800/30 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-700'}"
                                     onclick={() => { encoder = e; setOptionForEncoder(e); }}
                                     disabled={disabled}
@@ -485,10 +570,10 @@
                                 <Label class="text-xs font-bold uppercase tracking-wider text-gray-400">PNG 压缩策略 (Compression)</Label>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {#each pngCompress as pc}
-                                        <button 
+                                        <button
                                             class="flex items-center justify-between p-4 rounded-2xl border-2 transition-all
-                                            {pngCompression === pc.value 
-                                                ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20' 
+                                            {pngCompression === pc.value
+                                                ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20'
                                                 : 'bg-gray-50/50 dark:bg-gray-800/30 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-700'}"
                                             onclick={() => pngCompression = pc.value}
                                             disabled={disabled}
@@ -525,6 +610,23 @@
                                             <span class="w-10 text-right font-black text-primary-600 dark:text-primary-400">{avifSpeed}</span>
                                         </div>
                                     </div>
+                                    <div class="space-y-4">
+                                        <Label class="text-xs font-bold uppercase tracking-wider text-gray-400">编码器 (Encoder)</Label>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            {#each avifEncoders as ae}
+                                                <button
+                                                    class="flex items-center justify-center p-3 rounded-2xl border-2 transition-all text-xs font-bold
+                                                    {avifEncoder === ae.value
+                                                        ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20'
+                                                        : 'bg-gray-50/50 dark:bg-gray-800/30 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-700'}"
+                                                    onclick={() => avifEncoder = ae.value}
+                                                    disabled={disabled}
+                                                >
+                                                    {ae.name}
+                                                </button>
+                                            {/each}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         {:else}
@@ -550,7 +652,7 @@
                         </Button>
                     </div>
                 </div>
-                
+
                 <div class="w-full md:w-auto flex flex-col sm:flex-row gap-3 pt-6 md:pt-4">
                     <Button color="light" onclick={reset} disabled={disabled || filesNum === 0} class="rounded-2xl border-gray-100 dark:border-gray-700 dark:bg-gray-800 py-3 font-bold text-xs uppercase tracking-wider">
                         重置宽高
@@ -567,5 +669,14 @@
                 </div>
             </div>
         </Card>
+    {/if}
+
+    {#if cropTarget}
+        <ImageCropModal
+            open={true}
+            file={cropTarget}
+            oncancel={() => { cropTarget = null; }}
+            onconfirm={handleCropConfirm}
+        />
     {/if}
 </div>

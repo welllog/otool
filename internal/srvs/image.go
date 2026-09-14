@@ -20,8 +20,9 @@ import (
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gen2brain/avif"
+	gav1davif "github.com/gen2brain/gav1d/avif"
 
-	"github.com/chai2010/webp"
+	webp "github.com/SeriousBug/webp-go-pure/std"
 	"github.com/disintegration/gift"
 	"github.com/disintegration/imaging"
 	"github.com/liyue201/goqr"
@@ -35,7 +36,6 @@ import (
 	"github.com/welllog/otool/internal/errx"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
-	_ "golang.org/x/image/webp"
 )
 
 type ImageInfo struct {
@@ -86,6 +86,13 @@ type ImageOptions struct {
 	AvifQualityAlpha int `json:"avifQualityAlpha"`
 	// [1, 10], default 10. Slower should make for a better quality image in less bytes.
 	AvifSpeed int `json:"avifSpeed"`
+	// "auto" | "gav1d" | "libavif". "auto" uses gav1d for opaque images and libavif for images with alpha.
+	AvifEncoder string `json:"avifEncoder"`
+	// 自由裁剪选区（op == CustomCrop 时生效），原图像素坐标
+	CropX      int `json:"cropX"`
+	CropY      int `json:"cropY"`
+	CropWidth  int `json:"cropWidth"`
+	CropHeight int `json:"cropHeight"`
 }
 
 const (
@@ -97,6 +104,7 @@ const (
 	FixedHeight        // 固定高度
 	MaxHeight          // 最大高度
 	Percentage         // 百分比
+	CustomCrop         // 自由裁剪
 )
 
 type Image struct {
@@ -150,6 +158,8 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 		}
 		img = gifImg.Image[0]
 		frames = len(gifImg.Image)
+	} else if mTyp.String() == "image/avif" {
+		img, err = gav1davif.Decode(f)
 	} else {
 		img, err = decode(f)
 	}
@@ -243,6 +253,17 @@ func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eve
 				return
 			}
 			img = gifImg.Image[0]
+		} else if file.Type == "image/avif" {
+			img, err = gav1davif.Decode(bytes.NewReader(file.Body))
+			if err != nil {
+				notify(i.Ctx, NotifyEvent{
+					Info: fmt.Sprintf("解码%s失败: %s", file.Name, err.Error()),
+					Type: "danger",
+				})
+				return
+			}
+
+			record.progress.Incr()
 		} else {
 			img, err = decode(bytes.NewReader(file.Body))
 			if err != nil {
@@ -267,9 +288,9 @@ func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eve
 		case "gif":
 			err = imaging.Save(img, outputName, imaging.GIFNumColors(opts.GifNumColors))
 		case "webp":
-			err = webp.Save(outputName, img, &webp.Options{Lossless: opts.WebpLossless, Quality: float32(opts.WebpQuality), Exact: opts.WebpRgbInTransparent})
+			err = webp.Encode(of, img, &webp.Options{Lossless: opts.WebpLossless, Quality: opts.WebpQuality})
 		case "avif":
-			err = avif.Encode(of, img, avif.Options{Quality: opts.AvifQuality, QualityAlpha: opts.AvifQualityAlpha, Speed: opts.AvifSpeed})
+			err = encodeAVIF(of, img, &opts)
 		default:
 			err = imaging.Save(img, outputName)
 		}
@@ -387,6 +408,60 @@ func decode(r io.Reader) (image.Image, error) {
 	return imaging.Decode(r, imaging.AutoOrientation(true))
 }
 
+// gav1dSafeSize reports whether gav1d's encoder is reliable at this size; its
+// AV1 encoder corrupts the bitstream for images above roughly 9.5MP.
+func gav1dSafeSize(w, h int) bool {
+	return w > 0 && h > 0 && w <= 4096 && h <= 4096 && w*h <= 9_000_000
+}
+
+// encodeAVIF encodes m as AVIF, choosing gav1d (native) or libavif (WASM)
+// per opts.AvifEncoder; "auto" uses gav1d for opaque images within a safe
+// size and libavif otherwise. gav1d output is verified by re-decoding before
+// use, falling back to libavif when it is invalid.
+func encodeAVIF(w io.Writer, m image.Image, opts *ImageOptions) error {
+	useGav1d := false
+	switch opts.AvifEncoder {
+	case "gav1d":
+		useGav1d = true
+	case "libavif":
+		useGav1d = false
+	default: // "auto"
+		b := m.Bounds()
+		useGav1d = opaque(m) && gav1dSafeSize(b.Dx(), b.Dy())
+	}
+	if useGav1d {
+		var buf bytes.Buffer
+		if err := gav1davif.Encode(&buf, m, gav1davif.EncodeOptions{
+			Quality:      opts.AvifQuality,
+			QualityAlpha: opts.AvifQualityAlpha,
+			Speed:        opts.AvifSpeed,
+		}); err == nil {
+			if _, derr := gav1davif.Decode(bytes.NewReader(buf.Bytes())); derr == nil {
+				_, werr := w.Write(buf.Bytes())
+				return werr
+			}
+		}
+		// fall back to libavif on gav1d failure or invalid output
+	}
+	return avif.Encode(w, m, avif.Options{Quality: opts.AvifQuality, QualityAlpha: opts.AvifQualityAlpha, Speed: opts.AvifSpeed})
+}
+
+// opaque reports whether every pixel of m is fully opaque.
+func opaque(m image.Image) bool {
+	if o, ok := m.(interface{ Opaque() bool }); ok {
+		return o.Opaque()
+	}
+	b := m.Bounds()
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			if _, _, _, a := m.At(x, y).RGBA(); a != 0xffff {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func formatFromFilename(filename string) (string, error) {
 	ext := filepath.Ext(filename)
 	if ext == ".webp" {
@@ -423,6 +498,10 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 		w := math.Ceil(float64(g.Config.Width) * float64(opts.Percent) / 100)
 		h := math.Ceil(float64(g.Config.Height) * float64(opts.Percent) / 100)
 		filters = append(filters, gift.ResizeToFill(int(w), int(h), gift.NearestNeighborResampling, gift.CenterAnchor))
+	case CustomCrop:
+		if rect, ok := customCropRect(image.Rect(0, 0, g.Config.Width, g.Config.Height), opts); ok {
+			filters = append(filters, gift.Crop(rect))
+		}
 	case MaxWidth:
 		if g.Config.Width > opts.Width {
 			filters = append(filters, gift.Resize(opts.Width, 0, gift.NearestNeighborResampling))
@@ -485,6 +564,21 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 	return c
 }
 
+// customCropRect clamps the free-crop selection to the image bounds; ok is false when empty.
+func customCropRect(b image.Rectangle, opts *ImageOptions) (image.Rectangle, bool) {
+	if opts.CropWidth <= 0 || opts.CropHeight <= 0 {
+		return image.Rectangle{}, false
+	}
+	x0 := max(b.Min.X, opts.CropX)
+	y0 := max(b.Min.Y, opts.CropY)
+	x1 := min(b.Max.X, opts.CropX+opts.CropWidth)
+	y1 := min(b.Max.Y, opts.CropY+opts.CropHeight)
+	if x1 <= x0 || y1 <= y0 {
+		return image.Rectangle{}, false
+	}
+	return image.Rect(x0, y0, x1, y1), true
+}
+
 func crop(img image.Image, opts *ImageOptions) image.Image {
 	switch opts.Op {
 	case Original:
@@ -499,6 +593,12 @@ func crop(img image.Image, opts *ImageOptions) image.Image {
 		w := math.Ceil(float64(img.Bounds().Dx()) * float64(opts.Percent) / 100)
 		h := math.Ceil(float64(img.Bounds().Dy()) * float64(opts.Percent) / 100)
 		return imaging.Fill(img, int(w), int(h), imaging.Center, imaging.Lanczos)
+	case CustomCrop:
+		rect, ok := customCropRect(img.Bounds(), opts)
+		if !ok {
+			return img
+		}
+		return imaging.Crop(img, rect)
 	case MaxWidth:
 		if img.Bounds().Dx() <= opts.Width {
 			return img
