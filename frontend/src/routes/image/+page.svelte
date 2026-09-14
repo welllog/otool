@@ -1,5 +1,6 @@
 <script>
     import FilePondWrapper from '$lib/FilePondWrapper.svelte';
+    import ImageCropModal from '$lib/ImageCropModal.svelte';
     import md5 from 'md5';
 
     import * as image from "wjs/go/srvs/Image"
@@ -43,6 +44,9 @@
     let curProgress = $state(0);
     let progressClose = () => {};
     let showProgress = $state(false);
+    let cropTarget = $state(null); // 正在裁剪的文件项
+    /** @type {{ x: number, y: number, width: number, height: number } | null} */
+    let cropRect = $state(null);   // 自由裁剪选区（原图像素）
 
     onMount(() => {
         app.DefaultPath().then((path) => {outPath = path})
@@ -94,6 +98,7 @@
         { name: '固定宽高裁剪', value: 3 },
         { name: '最大宽高缩放', value: 4 },
         { name: '固定高度缩放', value: 5 },
+        { name: '自定义裁剪', value: 8 },
         { name: '最大高度缩放', value: 6 },
         { name: '按百分比缩放', value: 7 },
     ]
@@ -128,7 +133,25 @@
         width = firstWidth;
         height = firstHeight;
         percent = 100;
+        cropRect = null;
         toast('success', '已恢复初始宽高配置');
+    }
+
+    function openCrop() {
+        const files = pondRef.getFiles();
+        // @ts-ignore
+        const imgFiles = files.filter(f => acceptedFileTypes.includes(f.file.type));
+        if (imgFiles.length !== 1) {
+            toast("warning", "自由裁剪仅支持单文件");
+            return;
+        }
+        cropTarget = imgFiles[0];
+    }
+
+    function handleCropConfirm(/** @type {any} */ rect) {
+        cropRect = rect;
+        cropTarget = null;
+        toast('success', '裁剪区域已设置');
     }
 
     async function openFolder() {
@@ -168,6 +191,22 @@
             return;
         }
 
+        const rect = op === 8 ? cropRect : null;
+        if (op === 8) {
+            if (imgFiles.length !== 1) {
+                toast("warning", "自由裁剪仅支持单文件，请只保留一张图片");
+                disabled = false;
+                loading = false;
+                return;
+            }
+            if (!rect) {
+                toast("warning", '请先点击"选择裁剪区域"设置选区');
+                disabled = false;
+                loading = false;
+                return;
+            }
+        }
+
         let opts = new srvs.ImageOptions({
             op: Number(op),
             encoder: encoder,
@@ -187,6 +226,10 @@
             avifQualityAlpha: Number(avifQualityAlpha),
             avifSpeed: Number(avifSpeed),
             avifEncoder,
+            cropX: rect?.x ?? 0,
+            cropY: rect?.y ?? 0,
+            cropWidth: rect?.width ?? 0,
+            cropHeight: rect?.height ?? 0,
         });
 
         filesName += Math.round(Math.random() * 10000)
@@ -263,6 +306,8 @@
         filesNum = 0;
         firstWidth = 0;
         firstHeight = 0;
+        cropRect = null;
+        cropTarget = null;
     }
 
     onDestroy(() => {
@@ -399,6 +444,37 @@
                         <div class="pt-4 border-t border-gray-50 dark:border-gray-800">
                             <Label class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">缩放比例 (%)</Label>
                             <Input size="lg" bind:value={percent} type="number" disabled={disabled} class="w-full bg-primary-50/20 dark:bg-primary-900/10 border-primary-100/50 dark:border-primary-900/20 font-mono text-center text-primary-600 dark:text-primary-400" />
+                        </div>
+                    {/if}
+
+                    {#if op === 8}
+                        <div class="pt-4 border-t border-gray-50 dark:border-gray-800 space-y-4">
+                            <Label class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">裁剪选区</Label>
+                            {#if filesNum !== 1}
+                                <div class="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl text-xs font-bold text-amber-700 dark:text-amber-400">
+                                    自由裁剪仅支持单文件，请清空列表后只保留一张图片。
+                                </div>
+                            {:else}
+                                <div class="p-3 bg-gray-50/50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl space-y-3">
+                                    {#if cropRect}
+                                        <div class="text-xs font-mono text-gray-600 dark:text-gray-300">
+                                            选区：{cropRect.width} × {cropRect.height}　起点 ({cropRect.x}, {cropRect.y})
+                                        </div>
+                                    {:else}
+                                        <div class="text-xs font-bold text-gray-400">尚未设置裁剪区域</div>
+                                    {/if}
+                                    <div class="flex gap-2">
+                                        <Button size="sm" color="primary" onclick={openCrop} disabled={disabled || filesNum !== 1} class="rounded-xl px-5 bg-primary-600 hover:bg-primary-700 border-none">
+                                            {cropRect ? '重新选择' : '选择裁剪区域'}
+                                        </Button>
+                                        {#if cropRect}
+                                            <Button size="sm" color="light" onclick={() => { cropRect = null; }} disabled={disabled} class="rounded-xl border-gray-200 dark:border-gray-700">
+                                                清除
+                                            </Button>
+                                        {/if}
+                                    </div>
+                                </div>
+                            {/if}
                         </div>
                     {/if}
                 </div>
@@ -593,5 +669,14 @@
                 </div>
             </div>
         </Card>
+    {/if}
+
+    {#if cropTarget}
+        <ImageCropModal
+            open={true}
+            file={cropTarget}
+            oncancel={() => { cropTarget = null; }}
+            onconfirm={handleCropConfirm}
+        />
     {/if}
 </div>

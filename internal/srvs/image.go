@@ -88,6 +88,11 @@ type ImageOptions struct {
 	AvifSpeed int `json:"avifSpeed"`
 	// "auto" | "gav1d" | "libavif". "auto" uses gav1d for opaque images and libavif for images with alpha.
 	AvifEncoder string `json:"avifEncoder"`
+	// 自由裁剪选区（op == CustomCrop 时生效），原图像素坐标
+	CropX      int `json:"cropX"`
+	CropY      int `json:"cropY"`
+	CropWidth  int `json:"cropWidth"`
+	CropHeight int `json:"cropHeight"`
 }
 
 const (
@@ -99,6 +104,7 @@ const (
 	FixedHeight        // 固定高度
 	MaxHeight          // 最大高度
 	Percentage         // 百分比
+	CustomCrop         // 自由裁剪
 )
 
 type Image struct {
@@ -492,6 +498,10 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 		w := math.Ceil(float64(g.Config.Width) * float64(opts.Percent) / 100)
 		h := math.Ceil(float64(g.Config.Height) * float64(opts.Percent) / 100)
 		filters = append(filters, gift.ResizeToFill(int(w), int(h), gift.NearestNeighborResampling, gift.CenterAnchor))
+	case CustomCrop:
+		if rect, ok := customCropRect(image.Rect(0, 0, g.Config.Width, g.Config.Height), opts); ok {
+			filters = append(filters, gift.Crop(rect))
+		}
 	case MaxWidth:
 		if g.Config.Width > opts.Width {
 			filters = append(filters, gift.Resize(opts.Width, 0, gift.NearestNeighborResampling))
@@ -554,6 +564,21 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 	return c
 }
 
+// customCropRect clamps the free-crop selection to the image bounds; ok is false when empty.
+func customCropRect(b image.Rectangle, opts *ImageOptions) (image.Rectangle, bool) {
+	if opts.CropWidth <= 0 || opts.CropHeight <= 0 {
+		return image.Rectangle{}, false
+	}
+	x0 := max(b.Min.X, opts.CropX)
+	y0 := max(b.Min.Y, opts.CropY)
+	x1 := min(b.Max.X, opts.CropX+opts.CropWidth)
+	y1 := min(b.Max.Y, opts.CropY+opts.CropHeight)
+	if x1 <= x0 || y1 <= y0 {
+		return image.Rectangle{}, false
+	}
+	return image.Rect(x0, y0, x1, y1), true
+}
+
 func crop(img image.Image, opts *ImageOptions) image.Image {
 	switch opts.Op {
 	case Original:
@@ -568,6 +593,12 @@ func crop(img image.Image, opts *ImageOptions) image.Image {
 		w := math.Ceil(float64(img.Bounds().Dx()) * float64(opts.Percent) / 100)
 		h := math.Ceil(float64(img.Bounds().Dy()) * float64(opts.Percent) / 100)
 		return imaging.Fill(img, int(w), int(h), imaging.Center, imaging.Lanczos)
+	case CustomCrop:
+		rect, ok := customCropRect(img.Bounds(), opts)
+		if !ok {
+			return img
+		}
+		return imaging.Crop(img, rect)
 	case MaxWidth:
 		if img.Bounds().Dx() <= opts.Width {
 			return img
