@@ -1,13 +1,14 @@
 module github.com/welllog/otool
 
-go 1.25.0
+go 1.26.4
 
 require (
-	github.com/chai2010/webp v1.1.1
+	github.com/SeriousBug/webp-go-pure v1.2.0
 	github.com/disintegration/gift v1.2.1
 	github.com/disintegration/imaging v1.6.2
 	github.com/gabriel-vasile/mimetype v1.4.4
 	github.com/gen2brain/avif v0.3.2
+	github.com/gen2brain/gav1d v0.2.5
 	github.com/liyue201/goqr v0.0.0-20200803022322-df443203d4ea
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	github.com/wailsapp/wails/v2 v2.12.0

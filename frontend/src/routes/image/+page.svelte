@@ -36,6 +36,7 @@
     let avifQuality = $state(60);
     let avifQualityAlpha = $state(60);
     let avifSpeed = $state(10);
+    let avifEncoder = $state('auto');
 
     let disabled = $state(false);
     let loading = $state(false);
@@ -104,6 +105,12 @@
         { name: '不压缩', value: -1 },
         { name: '速度优先', value: -2 },
         { name: '压缩优先', value: -3 },
+    ]
+
+    const avifEncoders = [
+        { name: '自动', value: 'auto' },
+        { name: '快速 (gav1d)', value: 'gav1d' },
+        { name: '高质量 (libavif)', value: 'libavif' },
     ]
 
     const frameOps = [
@@ -179,6 +186,7 @@
             avifQuality: Number(avifQuality),
             avifQualityAlpha: Number(avifQualityAlpha),
             avifSpeed: Number(avifSpeed),
+            avifEncoder,
         });
 
         filesName += Math.round(Math.random() * 10000)
@@ -226,6 +234,7 @@
                 avifQuality = 60
                 avifQualityAlpha = 60
                 avifSpeed = 10
+                avifEncoder = 'auto'
         }
     }
 
@@ -266,7 +275,7 @@
     .custom-range {
         -webkit-appearance: none;
         appearance: none;
-        display: block; 
+        display: block;
         width: 100%;
         min-width: 100px;
         height: 6px;
@@ -286,13 +295,13 @@
         appearance: none;
         width: 18px;
         height: 18px;
-        background: #7c3aed; 
+        background: #7c3aed;
         border: 3px solid white;
         border-radius: 50%;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         cursor: grab;
         transition: all 0.2s;
-        margin-top: -6px; 
+        margin-top: -6px;
     }
 
     .custom-range:active::-webkit-slider-thumb {
@@ -303,7 +312,7 @@
 
     :global(.dark) .custom-range::-webkit-slider-thumb {
         border-color: #1f2937;
-        background: #8b5cf6; 
+        background: #8b5cf6;
     }
 
     .custom-range:hover {
@@ -324,8 +333,8 @@
 
 <div class="flex flex-col gap-6 max-w-6xl mx-auto py-6">
     <!-- Source Image Card -->
-    <Card 
-        title="源图片" 
+    <Card
+        title="源图片"
         icon={`<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>`}
         delay={0}
     >
@@ -357,8 +366,8 @@
     {#if filesNum > 0 }
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
             <!-- Resize Card -->
-            <Card 
-                title="尺寸调整" 
+            <Card
+                title="尺寸调整"
                 icon={`<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" /></svg>`}
                 delay={100}
                 class="flex flex-col"
@@ -368,7 +377,7 @@
                         <Label class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">缩略模式</Label>
                         <Select size="md" items={ops} bind:value={op} disabled={disabled} class="w-full bg-gray-50/50 dark:bg-gray-800/50 border-gray-100 dark:border-gray-800 rounded-xl"/>
                     </div>
-                    
+
                     {#if op > 0 && op < 7}
                         <div class="grid grid-cols-2 gap-4 pt-4 border-t border-gray-50 dark:border-gray-800">
                             {#if op < 5}
@@ -396,8 +405,8 @@
             </Card>
 
             <!-- Encoder Card -->
-            <Card 
-                title="参数配置" 
+            <Card
+                title="参数配置"
                 icon={`<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /></svg>`}
                 delay={200}
                 class="flex flex-col"
@@ -407,10 +416,10 @@
                         <Label class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-4">输出保存格式</Label>
                         <div class="flex flex-wrap gap-3">
                             {#each encoders as e}
-                                <button 
+                                <button
                                     class="flex items-center px-4 py-2 rounded-xl border-2 transition-all font-black text-xs uppercase tracking-tight
-                                    {encoder === e 
-                                        ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20' 
+                                    {encoder === e
+                                        ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20'
                                         : 'bg-gray-50/50 dark:bg-gray-800/30 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-700'}"
                                     onclick={() => { encoder = e; setOptionForEncoder(e); }}
                                     disabled={disabled}
@@ -485,10 +494,10 @@
                                 <Label class="text-xs font-bold uppercase tracking-wider text-gray-400">PNG 压缩策略 (Compression)</Label>
                                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {#each pngCompress as pc}
-                                        <button 
+                                        <button
                                             class="flex items-center justify-between p-4 rounded-2xl border-2 transition-all
-                                            {pngCompression === pc.value 
-                                                ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20' 
+                                            {pngCompression === pc.value
+                                                ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20'
                                                 : 'bg-gray-50/50 dark:bg-gray-800/30 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-700'}"
                                             onclick={() => pngCompression = pc.value}
                                             disabled={disabled}
@@ -525,6 +534,23 @@
                                             <span class="w-10 text-right font-black text-primary-600 dark:text-primary-400">{avifSpeed}</span>
                                         </div>
                                     </div>
+                                    <div class="space-y-4">
+                                        <Label class="text-xs font-bold uppercase tracking-wider text-gray-400">编码器 (Encoder)</Label>
+                                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                            {#each avifEncoders as ae}
+                                                <button
+                                                    class="flex items-center justify-center p-3 rounded-2xl border-2 transition-all text-xs font-bold
+                                                    {avifEncoder === ae.value
+                                                        ? 'bg-primary-600 border-primary-600 text-white shadow-lg shadow-primary-500/20'
+                                                        : 'bg-gray-50/50 dark:bg-gray-800/30 border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-200 dark:hover:border-gray-700'}"
+                                                    onclick={() => avifEncoder = ae.value}
+                                                    disabled={disabled}
+                                                >
+                                                    {ae.name}
+                                                </button>
+                                            {/each}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         {:else}
@@ -550,7 +576,7 @@
                         </Button>
                     </div>
                 </div>
-                
+
                 <div class="w-full md:w-auto flex flex-col sm:flex-row gap-3 pt-6 md:pt-4">
                     <Button color="light" onclick={reset} disabled={disabled || filesNum === 0} class="rounded-2xl border-gray-100 dark:border-gray-700 dark:bg-gray-800 py-3 font-bold text-xs uppercase tracking-wider">
                         重置宽高

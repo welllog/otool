@@ -20,8 +20,9 @@ import (
 
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gen2brain/avif"
+	gav1davif "github.com/gen2brain/gav1d/avif"
 
-	"github.com/chai2010/webp"
+	webp "github.com/SeriousBug/webp-go-pure/std"
 	"github.com/disintegration/gift"
 	"github.com/disintegration/imaging"
 	"github.com/liyue201/goqr"
@@ -35,7 +36,6 @@ import (
 	"github.com/welllog/otool/internal/errx"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
-	_ "golang.org/x/image/webp"
 )
 
 type ImageInfo struct {
@@ -86,6 +86,8 @@ type ImageOptions struct {
 	AvifQualityAlpha int `json:"avifQualityAlpha"`
 	// [1, 10], default 10. Slower should make for a better quality image in less bytes.
 	AvifSpeed int `json:"avifSpeed"`
+	// "auto" | "gav1d" | "libavif". "auto" uses gav1d for opaque images and libavif for images with alpha.
+	AvifEncoder string `json:"avifEncoder"`
 }
 
 const (
@@ -150,6 +152,8 @@ func (i *Image) Decode(pathName string) (*ImageInfo, error) {
 		}
 		img = gifImg.Image[0]
 		frames = len(gifImg.Image)
+	} else if mTyp.String() == "image/avif" {
+		img, err = gav1davif.Decode(f)
 	} else {
 		img, err = decode(f)
 	}
@@ -243,6 +247,17 @@ func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eve
 				return
 			}
 			img = gifImg.Image[0]
+		} else if file.Type == "image/avif" {
+			img, err = gav1davif.Decode(bytes.NewReader(file.Body))
+			if err != nil {
+				notify(i.Ctx, NotifyEvent{
+					Info: fmt.Sprintf("解码%s失败: %s", file.Name, err.Error()),
+					Type: "danger",
+				})
+				return
+			}
+
+			record.progress.Incr()
 		} else {
 			img, err = decode(bytes.NewReader(file.Body))
 			if err != nil {
@@ -267,9 +282,9 @@ func (i *Image) CropAndSave(file ImageFile, opts ImageOptions, filesNum int, eve
 		case "gif":
 			err = imaging.Save(img, outputName, imaging.GIFNumColors(opts.GifNumColors))
 		case "webp":
-			err = webp.Save(outputName, img, &webp.Options{Lossless: opts.WebpLossless, Quality: float32(opts.WebpQuality), Exact: opts.WebpRgbInTransparent})
+			err = webp.Encode(of, img, &webp.Options{Lossless: opts.WebpLossless, Quality: opts.WebpQuality})
 		case "avif":
-			err = avif.Encode(of, img, avif.Options{Quality: opts.AvifQuality, QualityAlpha: opts.AvifQualityAlpha, Speed: opts.AvifSpeed})
+			err = encodeAVIF(of, img, &opts)
 		default:
 			err = imaging.Save(img, outputName)
 		}
@@ -385,6 +400,60 @@ func (i *Image) waitRecord(record *taskRecord) {
 
 func decode(r io.Reader) (image.Image, error) {
 	return imaging.Decode(r, imaging.AutoOrientation(true))
+}
+
+// gav1dSafeSize reports whether gav1d's encoder is reliable at this size; its
+// AV1 encoder corrupts the bitstream for images above roughly 9.5MP.
+func gav1dSafeSize(w, h int) bool {
+	return w > 0 && h > 0 && w <= 4096 && h <= 4096 && w*h <= 9_000_000
+}
+
+// encodeAVIF encodes m as AVIF, choosing gav1d (native) or libavif (WASM)
+// per opts.AvifEncoder; "auto" uses gav1d for opaque images within a safe
+// size and libavif otherwise. gav1d output is verified by re-decoding before
+// use, falling back to libavif when it is invalid.
+func encodeAVIF(w io.Writer, m image.Image, opts *ImageOptions) error {
+	useGav1d := false
+	switch opts.AvifEncoder {
+	case "gav1d":
+		useGav1d = true
+	case "libavif":
+		useGav1d = false
+	default: // "auto"
+		b := m.Bounds()
+		useGav1d = opaque(m) && gav1dSafeSize(b.Dx(), b.Dy())
+	}
+	if useGav1d {
+		var buf bytes.Buffer
+		if err := gav1davif.Encode(&buf, m, gav1davif.EncodeOptions{
+			Quality:      opts.AvifQuality,
+			QualityAlpha: opts.AvifQualityAlpha,
+			Speed:        opts.AvifSpeed,
+		}); err == nil {
+			if _, derr := gav1davif.Decode(bytes.NewReader(buf.Bytes())); derr == nil {
+				_, werr := w.Write(buf.Bytes())
+				return werr
+			}
+		}
+		// fall back to libavif on gav1d failure or invalid output
+	}
+	return avif.Encode(w, m, avif.Options{Quality: opts.AvifQuality, QualityAlpha: opts.AvifQualityAlpha, Speed: opts.AvifSpeed})
+}
+
+// opaque reports whether every pixel of m is fully opaque.
+func opaque(m image.Image) bool {
+	if o, ok := m.(interface{ Opaque() bool }); ok {
+		return o.Opaque()
+	}
+	b := m.Bounds()
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			if _, _, _, a := m.At(x, y).RGBA(); a != 0xffff {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func formatFromFilename(filename string) (string, error) {

@@ -66,6 +66,7 @@ export namespace srvs {
 	    avifQuality: number;
 	    avifQualityAlpha: number;
 	    avifSpeed: number;
+	    avifEncoder: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ImageOptions(source);
@@ -90,6 +91,7 @@ export namespace srvs {
 	        this.avifQuality = source["avifQuality"];
 	        this.avifQualityAlpha = source["avifQualityAlpha"];
 	        this.avifSpeed = source["avifSpeed"];
+	        this.avifEncoder = source["avifEncoder"];
 	    }
 	}
 
