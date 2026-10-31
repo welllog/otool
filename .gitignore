@@ -1,7 +1,9 @@
 # Binaries
+bin/
 otool
 otool-*
 *.exe
+*.app
 *.exe~
 *.dll
 *.so
