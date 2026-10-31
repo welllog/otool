@@ -1,0 +1,21 @@
+# Binaries
+otool
+otool-*
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+*.test
+*.out
+
+# OS & IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Scratch & temp files
+scratch/
+tmp/
