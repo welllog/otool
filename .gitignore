@@ -1,23 +1,47 @@
-# Binaries
+# Compiled binaries & bundle outputs
 bin/
 otool
 otool-*
 *.exe
-*.app
 *.exe~
+*.app/
 *.dll
 *.so
 *.dylib
+*.dmg
+*.pkg
+*.zip
+*.tar.gz
 
-# Test artifacts
+# Root temporary syso files (keep build/windows/*.syso)
+/*.syso
+
+# Temporary iconset directory when generating .icns
+*.iconset/
+
+# Test & profiling artifacts
 *.test
 *.out
+coverage.txt
+*.pprof
 
-# OS & IDE
+# Logs & temp files
+*.log
+tmp/
+temp/
+scratch/
+
+# OS specific files
 .DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE & Editor files
 .idea/
 .vscode/
-
-# Scratch & temp files
-scratch/
-tmp/
+*.swp
+*.swo
+*~

@@ -14,3 +14,4 @@ test:
 
 clean:
 	./scripts/build.sh clean
+
