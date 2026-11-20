@@ -48,6 +48,17 @@ build_macos_app() {
 
 build_windows_exe() {
     echo "==> Building Windows executable with embedded icon (otool.exe)..."
+
+    # Regenerate the icon resource when icon.ico is newer than the committed
+    # .syso, so a refreshed app icon is never silently shipped stale.
+    # Requires go-winres on PATH (go install github.com/tc-hib/go-winres@latest).
+    if command -v go-winres >/dev/null 2>&1; then
+        if [ ! -f "build/windows/rsrc_windows_amd64.syso" ] || [ "build/icon.ico" -nt "build/windows/rsrc_windows_amd64.syso" ]; then
+            echo "  -> icon.ico updated; regenerating rsrc_windows_amd64.syso (go-winres)..."
+            (cd build/windows && go-winres simply --icon ../icon.ico --arch amd64 --manifest gui)
+        fi
+    fi
+
     # Temporarily copy .syso to root for go build linking
     if [ -f "build/windows/rsrc_windows_amd64.syso" ]; then
         cp "build/windows/rsrc_windows_amd64.syso" "./rsrc_windows_amd64.syso"
