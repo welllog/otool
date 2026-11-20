@@ -4,6 +4,8 @@ go 1.27.3
 
 require (
 	github.com/SeriousBug/webp-go-pure v1.2.0
+	github.com/cespare/xxhash/v2 v2.3.0
+	github.com/corona10/goimagehash v1.1.0
 	github.com/disintegration/gift v1.2.1
 	github.com/disintegration/imaging v1.6.2
 	github.com/egoist/mygo v0.7.3
@@ -14,6 +16,8 @@ require (
 	github.com/gen2brain/jxl v0.2.2
 	github.com/jackmordaunt/icns/v4 v4.2.0
 	github.com/makiuchi-d/gozxing v0.1.1
+	github.com/rwcarlsen/goexif v0.0.0-20190401172101-9e8deecbddbd
+	github.com/studio-b12/gowebdav v0.13.0
 	github.com/welllog/golib v0.1.1
 	github.com/yeqown/go-qrcode/v2 v2.3.0
 	github.com/yeqown/go-qrcode/writer/standard v1.4.0
@@ -25,6 +29,7 @@ require (
 	github.com/fogleman/gg v1.3.0 // indirect
 	github.com/go-text/typesetting v0.3.5 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
+	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/yeqown/reedsolomon v1.0.0 // indirect

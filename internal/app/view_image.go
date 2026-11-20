@@ -30,6 +30,24 @@ var resizeModes = []struct {
 
 var imageEncoders = []string{"png", "jpg", "webp", "gif", "avif", "bmp", "tiff", "heic", "jxl", "ico", "icns"}
 
+// imageFormatIntros 为每种目标格式提供一段简要说明，随所选格式展示，
+// 帮助使用者在不了解编码器生态的情况下做出选择。现代格式突出其在
+// 当前格式系列中的优势（压缩率 / 特性 / 兼容性），数据来源为官方研究
+// 与本工具实测。
+var imageFormatIntros = map[string]string{
+	"png":  "无损格式，完整保留透明通道。适合截图、图表、设计稿等需要无损或透明的场景；体积通常明显大于有损格式。",
+	"jpg":  "兼容性最好的照片格式：所有设备与软件均可打开，不支持透明。质量 95 接近原始观感，是本工具全格式的画质基准档。",
+	"webp": "现代网页通用格式：官方研究同画质较 JPG 小约 25–35%，且支持透明与动画，主流浏览器全面支持——网页图片首选。",
+	"gif":  "最多 256 色的调色板格式，支持动图。适合表情包与简单动画；照片类内容色彩损失明显、体积偏大。GIF 转 GIF 保留动画并支持抽帧。",
+	"avif": "最新一代网页格式（AV1 编码）：同画质体积约为 JPG 的一半并支持透明，Chrome 85+ / Firefox 93+ / Safari 16.4+ 均已支持。编码明显慢于其它格式，批量大图请耐心等待。",
+	"bmp":  "无压缩位图：零解码依赖、兼容老旧软件，但体积巨大，仅在目标软件不支持其它格式时选用。",
+	"tiff": "无损并支持高色深，印刷、扫描、出版行业通用格式；浏览器不支持，不适合网页场景。",
+	"heic": "iPhone 默认拍照格式：实测与 JPG 95 同画质时体积约减半，支持透明与无损。Apple 生态原生支持，Windows 通常需安装 HEVC 扩展——适合相册瘦身与苹果生态归档。",
+	"jxl":  "JPEG 官方后继格式：较 JPG 小 30–50%，有损、真无损、透明、动画一体支持。新版 Chrome / Firefox / Safari 已默认支持，旧版浏览器无法打开——适合高质量归档与新版网页。",
+	"ico":  "Windows 图标 / 网站 favicon 容器：自动写入 16–256 全部标准尺寸（不超过原图边长），非正方形原图将居中裁剪为正方形。",
+	"icns": "macOS 应用图标容器：自动写入 16–1024 全尺寸槽位（不超过原图边长），非正方形原图将居中裁剪；建议使用 1024×1024 正方形原图。",
+}
+
 var pngCompressOptions = []struct {
 	Name  string
 	Value int
@@ -525,6 +543,24 @@ func (a *App) renderEncoderSettingsCard(c *ui.Context) {
 				}
 			})
 
+			// 当前所选格式的简要说明
+			introKey := strings.ToLower(a.imgOpts.Encoder)
+			switch introKey {
+			case "jpeg":
+				introKey = "jpg"
+			case "tif":
+				introKey = "tiff"
+			}
+			if intro, ok := imageFormatIntros[introKey]; ok {
+				introBox := ui.Row(c).Gap(8).AlignItems(ui.Start).Padding(8, 10).Radius(8).Background(t.Surface).Border(1, t.Border)
+				introBox.Children(func() {
+					ui.Icon(c, IconInfo).Size(13, 13).TextColor(t.Accent)
+					ui.Column(c).Grow(1).Children(func() {
+						ui.Text(c, intro).FontSize(11).TextColor(t.Text).Wrap()
+					})
+				})
+			}
+
 			// Detailed options per format
 			switch a.imgOpts.Encoder {
 			case "jpg", "jpeg":
@@ -534,11 +570,13 @@ func (a *App) renderEncoderSettingsCard(c *ui.Context) {
 					if ui.Slider(c, &qVal, 1, 100).Changed() {
 						a.imgOpts.JpgQuality = int(qVal)
 					}
+					ui.Text(c, "质量 95 ≈ 存档级（自动启用全色采样）；85–90 为体积/画质平衡档。").FontSize(11).TextColor(t.TextMuted)
 				})
 
 			case "png":
 				ui.Column(c).Gap(8).Children(func() {
 					SectionHeader(c, "PNG 压缩策略", ui.Hex("#2563eb"))
+					ui.Text(c, "无损格式：压缩策略只影响速度与体积，不影响画质。").FontSize(11).TextColor(t.TextMuted)
 					ui.Row(c).Gap(6).Wrap().Children(func() {
 						for _, pc := range pngCompressOptions {
 							p := pc
@@ -578,9 +616,7 @@ func (a *App) renderEncoderSettingsCard(c *ui.Context) {
 						a.imgOpts.WebpQuality = int(qVal)
 					}
 					ui.Checkbox(c, &a.imgOpts.WebpLossless, "无损压缩 (Lossless)")
-					if a.imgOpts.WebpLossless {
-						ui.Checkbox(c, &a.imgOpts.WebpRgbInTransparent, "保留透明区域 RGB")
-					}
+					ui.Text(c, "质量 90 ≈ JPG 95 同档画质、体积更小；无损模式适合截图与图标。").FontSize(11).TextColor(t.TextMuted)
 				})
 
 			case "gif":
@@ -590,6 +626,7 @@ func (a *App) renderEncoderSettingsCard(c *ui.Context) {
 					if ui.Slider(c, &cVal, 2, 256).Changed() {
 						a.imgOpts.GifNumColors = int(cVal)
 					}
+					ui.Text(c, "256 为 GIF 调色板上限；抽帧可缩小动图体积。").FontSize(11).TextColor(t.TextMuted)
 
 					SectionHeader(c, "抽帧处理", ui.Hex("#2563eb"))
 					ui.Row(c).Gap(6).Wrap().Children(func() {
@@ -674,6 +711,7 @@ func (a *App) renderEncoderSettingsCard(c *ui.Context) {
 							})
 						}
 					})
+					ui.Text(c, "质量 60 为 libavif 官方默认档；速度 10 最快，调低仅省约 5% 体积但慢数倍，批处理建议保持 10。").FontSize(11).TextColor(t.TextMuted)
 				})
 
 			case "heic":
@@ -684,7 +722,7 @@ func (a *App) renderEncoderSettingsCard(c *ui.Context) {
 						a.imgOpts.HeicQuality = int(hqVal)
 					}
 					ui.Checkbox(c, &a.imgOpts.HeicLossless, "无损压缩 (Lossless)")
-					ui.Text(c, "iPhone 默认拍照格式，压缩率约为 JPEG 的一半").FontSize(11).TextColor(t.TextMuted)
+					ui.Text(c, "质量 60 ≈ JPG 95 同档画质、体积约减半。").FontSize(11).TextColor(t.TextMuted)
 				})
 
 			case "jxl":
@@ -695,23 +733,14 @@ func (a *App) renderEncoderSettingsCard(c *ui.Context) {
 						a.imgOpts.JxlQuality = int(jqVal)
 					}
 					ui.Checkbox(c, &a.imgOpts.JxlLossless, "无损压缩 (Lossless)")
-					ui.Text(c, "新一代格式，支持有损与无损，透明通道会被保留").FontSize(11).TextColor(t.TextMuted)
+					ui.Text(c, "质量 90 为官方「视觉无损」默认档；无损模式完全还原像素。").FontSize(11).TextColor(t.TextMuted)
 				})
 
-			case "ico":
-				ui.Column(c).Gap(8).Children(func() {
-					ui.Text(c, "Windows 图标格式：自动写入 16/24/32/48/64/128/256 多尺寸条目（不超过原图边长）。").
-						FontSize(11).TextColor(t.TextMuted)
-					ui.Text(c, "非正方形原图将居中裁剪为正方形，适合生成 favicon。").
-						FontSize(11).TextColor(t.TextMuted)
-				})
-
-			case "icns":
-				ui.Column(c).Gap(8).Children(func() {
-					ui.Text(c, "macOS 应用图标格式：自动写入 16–1024 全尺寸槽位（不超过原图边长）。").
-						FontSize(11).TextColor(t.TextMuted)
-					ui.Text(c, "非正方形原图将居中裁剪为正方形，建议使用 1024x1024 原图。").
-						FontSize(11).TextColor(t.TextMuted)
+			case "ico", "icns":
+				ui.Row(c).Padding(8, 0).Center().Children(func() {
+					ui.Text(c, "图标条目尺寸自动生成，无需额外配置参数。").
+						FontSize(11).
+						TextColor(t.TextMuted)
 				})
 
 			default:

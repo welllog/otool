@@ -16,6 +16,7 @@ var navItems = []NavItem{
 	{ID: PageConversion, Title: "进制转换", Icon: IconConversion},
 	{ID: PageImage, Title: "图片转换", Icon: IconImage},
 	{ID: PageQRCode, Title: "二维码工具", Icon: IconQRCode},
+	{ID: PageDedup, Title: "照片去重", Icon: IconDedup},
 }
 
 func (a *App) sidebar(c *ui.Context) {
@@ -92,7 +93,7 @@ func (a *App) sidebar(c *ui.Context) {
 
 			// Bottom: Footer status / version
 			ui.Column(c).Gap(4).Padding(4, 8).Children(func() {
-				ui.Text(c, "v0.2.0 • Native GPU").FontSize(11).Bold().TextColor(t.TextMuted)
+				ui.Text(c, "v0.3.0 • Native GPU").FontSize(11).Bold().TextColor(t.TextMuted)
 				ui.Text(c, "Pure Go • egoist/mygo").FontSize(10).TextColor(t.TextMuted)
 			})
 		})

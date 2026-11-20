@@ -72,7 +72,6 @@ type ImageOptions struct {
 	GifDrawOnBefore      bool
 	WebpLossless         bool
 	WebpQuality          int
-	WebpRgbInTransparent bool
 	AvifQuality          int
 	AvifQualityAlpha     int
 	AvifSpeed            int
@@ -99,7 +98,6 @@ func DefaultImageOptions() ImageOptions {
 		GifDrawOnBefore:      false,
 		WebpLossless:         false,
 		WebpQuality:          90,
-		WebpRgbInTransparent: false,
 		AvifQuality:          60,
 		AvifQualityAlpha:     60,
 		AvifSpeed:            10,
