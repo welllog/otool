@@ -11,7 +11,7 @@ import (
 
 const (
 	AppName    = "otool"
-	AppVersion = "v0.2.0"
+	AppVersion = "v0.3.0"
 )
 
 func main() {
@@ -33,4 +33,3 @@ func main() {
 		log.Fatal(err)
 	}
 }
-

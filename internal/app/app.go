@@ -1,11 +1,15 @@
 package app
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/welllog/otool/internal/services"
+	"github.com/welllog/otool/internal/services/dedup"
+	"github.com/welllog/otool/internal/storage"
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
@@ -17,6 +21,7 @@ const (
 	PageConversion
 	PageImage
 	PageQRCode
+	PageDedup
 )
 
 type App struct {
@@ -127,6 +132,65 @@ type App struct {
 	imgCropInitY      int
 	imgCropInitW      int
 	imgCropInitH      int
+
+	// --- Photo Dedup Page State ---
+	dedupProfiles               *storage.ProfilesFile
+	dedupProfilesLoadErr        string
+	dedupActiveProfileIdx       int
+	dedupEngine                 *dedup.Engine
+	dedupScanOpts               dedup.ScanOptions
+	dedupScanCancel             context.CancelFunc
+	dedupScanStore              storage.Storage // storage used by the scan that produced dedupGroups
+	dedupScanProfileID          string          // profile ID that produced dedupGroups
+	dedupScanReadOnly           bool            // read-only flag of the scan that produced dedupGroups
+	dedupIsScanning             bool
+	dedupProgress               dedup.ScanProgress
+	dedupGroups                 []*dedup.DuplicateGroup
+	dedupVisibleGroupLimit      int
+	dedupSelectedDeleteBytes    int64
+	dedupSelectedDeleteCount    int
+	dedupThumbs                 map[string]*ui.Bitmap
+	dedupThumbOrder             []string
+	dedupThumbMu                sync.Mutex
+	dedupThumbPending           map[string]bool
+	dedupThumbMissing           map[string]bool
+	dedupThumbRequests          chan dedupThumbRequest
+	dedupThumbCancel            chan struct{}
+	dedupThumbGeneration        uint64
+	dedupThumbWorkersOnce       sync.Once
+	dedupCacheStatsBytes        int64
+	dedupCacheStatsCount        int
+	dedupCacheStatsFpCount      int
+	dedupCacheStatsLoaded       bool
+	dedupCacheStatsLoading      bool
+	dedupCacheStatsDirty        bool
+	dedupCacheStatsLastRefresh  time.Time
+	dedupCacheStatsRefreshTimer *time.Timer
+	dedupCacheStatsRequest      uint64
+	dedupCacheMaintenance       bool
+	dedupCacheBusy              bool
+	dedupShowCacheClearModal    bool
+	dedupStatusMsg              string
+	dedupSelectedDistanceIdx    int // 0: 严格(5), 1: 标准(8), 2: 宽松(12)
+	dedupSelectedModeIdx        int // 0: 相似/连拍去重, 1: 完全精确去重
+
+	// Dedup profile edit modal state
+	dedupShowConfigModal   bool
+	dedupEditingIdx        int // -1 for new, >= 0 for editing
+	dedupEditName          string
+	dedupEditType          string
+	dedupEditWebdavURL     string
+	dedupEditWebdavUser    string
+	dedupEditWebdavPass    string
+	dedupEditWebdavRoot    string
+	dedupEditWebdavPassVis bool
+	dedupEditTestMsg       string
+	dedupEditTesting       bool
+
+	// Dedup delete confirmation modal
+	dedupShowConfirmModal bool
+	dedupConfirmTrashOnly bool
+	dedupIsDeleting       bool
 }
 
 func defaultUserPath() string {
@@ -178,6 +242,18 @@ func NewApp() *App {
 		folderRecursive: true,
 		folderSkipSame:  true,
 		folderKeepTree:  true,
+
+		// Dedup defaults
+		dedupEngine:              dedup.NewEngine(),
+		dedupScanOpts:            dedup.DefaultScanOptions(),
+		dedupThumbs:              make(map[string]*ui.Bitmap),
+		dedupThumbPending:        make(map[string]bool),
+		dedupThumbMissing:        make(map[string]bool),
+		dedupThumbCancel:         make(chan struct{}),
+		dedupVisibleGroupLimit:   dedupGroupPageSize,
+		dedupEditingIdx:          -1,
+		dedupConfirmTrashOnly:    true,
+		dedupSelectedDistanceIdx: 1, // 标准 8
 	}
 }
 
@@ -231,6 +307,14 @@ func (a *App) GetFolderBatchResult() (isProcessing bool, success, copied, fail, 
 
 // View builds the entire native UI tree.
 func (a *App) View(c *ui.Context) {
+	// Headless tests call View directly on a test goroutine while background
+	// workers use App.update. Serialize that test-only path with the same lock
+	// used by update when no native window exists.
+	if a.win == nil && a.currentPage == PageDedup {
+		a.stateMu.Lock()
+		defer a.stateMu.Unlock()
+	}
+
 	t := c.Theme()
 
 	// Flush queued toasts from background tasks
@@ -271,9 +355,10 @@ func (a *App) View(c *ui.Context) {
 								a.viewImage(c)
 							case PageQRCode:
 								a.viewQRCode(c)
+							case PageDedup:
+								a.viewDedup(c)
 							}
 						})
 				})
 		})
 }
-

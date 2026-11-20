@@ -24,6 +24,10 @@ import (
 	"github.com/gabriel-vasile/mimetype"
 	"github.com/gen2brain/avif"
 	gav1davif "github.com/gen2brain/gav1d/avif"
+	"github.com/gen2brain/h265/heic"
+	"github.com/gen2brain/jxl"
+	icnsv4 "github.com/jackmordaunt/icns/v4"
+	icov4 "github.com/jackmordaunt/icns/v4/ico"
 	"github.com/welllog/golib/randz"
 	_ "golang.org/x/image/bmp"
 	_ "golang.org/x/image/tiff"
@@ -68,11 +72,14 @@ type ImageOptions struct {
 	GifDrawOnBefore      bool
 	WebpLossless         bool
 	WebpQuality          int
-	WebpRgbInTransparent bool
 	AvifQuality          int
 	AvifQualityAlpha     int
 	AvifSpeed            int
 	AvifEncoder          string
+	HeicQuality          int
+	HeicLossless         bool
+	JxlQuality           int
+	JxlLossless          bool
 	CropX                int
 	CropY                int
 	CropWidth            int
@@ -91,11 +98,14 @@ func DefaultImageOptions() ImageOptions {
 		GifDrawOnBefore:      false,
 		WebpLossless:         false,
 		WebpQuality:          90,
-		WebpRgbInTransparent: false,
 		AvifQuality:          60,
 		AvifQualityAlpha:     60,
 		AvifSpeed:            10,
 		AvifEncoder:          "auto",
+		HeicQuality:          60,
+		HeicLossless:         false,
+		JxlQuality:           90,
+		JxlLossless:          false,
 	}
 }
 
@@ -125,6 +135,38 @@ func DefaultFolderBatchOptions() FolderBatchOptions {
 		KeepDirTree:     true,
 		ImageOpts:       DefaultImageOptions(),
 	}
+}
+
+// decodeStaticImage decodes one still image from f, which must be positioned
+// at the start of the data. Formats registered with image.RegisterFormat
+// (including HEIC, JXL, ICO and ICNS via their package init) are handled by the
+// generic imaging path, while HEIC and AVIF get dedicated branches: HEIC needs
+// irot/imir auto-rotation applied explicitly, AVIF prefers the gav1d decoder.
+func decodeStaticImage(f *os.File, mime string) (image.Image, error) {
+	if strings.HasPrefix(mime, "image/hei") { // image/heic, image/heif and their -sequence variants
+		img, err := heic.Decode(f, heic.Options{AutoRotate: true})
+		if err == nil {
+			return img, nil
+		}
+		if _, serr := f.Seek(0, io.SeekStart); serr != nil {
+			return nil, err
+		}
+		if img, derr := imaging.Decode(f, imaging.AutoOrientation(true)); derr == nil {
+			return img, nil
+		}
+		return nil, err
+	}
+	if mime == "image/avif" {
+		img, err := gav1davif.Decode(f)
+		if err == nil {
+			return img, nil
+		}
+		if _, serr := f.Seek(0, io.SeekStart); serr != nil {
+			return nil, err
+		}
+		return imaging.Decode(f, imaging.AutoOrientation(true))
+	}
+	return imaging.Decode(f, imaging.AutoOrientation(true))
 }
 
 // DecodeImageInfo decodes an image file and returns its metadata and a thumbnail image.
@@ -159,15 +201,8 @@ func DecodeImageInfo(pathName string) (*ImageInfo, error) {
 		}
 		img = gifImg.Image[0]
 		frames = len(gifImg.Image)
-	} else if mTyp.String() == "image/avif" {
-		img, err = gav1davif.Decode(f)
-		if err != nil {
-			// Fallback
-			_, _ = f.Seek(0, io.SeekStart)
-			img, err = imaging.Decode(f, imaging.AutoOrientation(true))
-		}
 	} else {
-		img, err = imaging.Decode(f, imaging.AutoOrientation(true))
+		img, err = decodeStaticImage(f, mTyp.String())
 	}
 	if err != nil {
 		return nil, err
@@ -229,7 +264,7 @@ func TransformImage(srcPath string, opts ImageOptions) (string, error) {
 	defer of.Close()
 
 	// Special handling for animated GIF when target is GIF
-	if mTyp.String() == "image/gif" && opts.Encoder == "gif" {
+	if mTyp.String() == "image/gif" && strings.ToLower(opts.Encoder) == "gif" {
 		gifImg, err := gif.DecodeAll(f)
 		if err == nil && len(gifImg.Image) > 1 {
 			gifImg = cropGif(gifImg, &opts)
@@ -243,15 +278,7 @@ func TransformImage(srcPath string, opts ImageOptions) (string, error) {
 	}
 
 	var img image.Image
-	if mTyp.String() == "image/avif" {
-		img, err = gav1davif.Decode(f)
-		if err != nil {
-			_, _ = f.Seek(0, io.SeekStart)
-			img, err = imaging.Decode(f, imaging.AutoOrientation(true))
-		}
-	} else {
-		img, err = imaging.Decode(f, imaging.AutoOrientation(true))
-	}
+	img, err = decodeStaticImage(f, mTyp.String())
 	if err != nil {
 		_ = os.Remove(outputName)
 		return "", fmt.Errorf("解码图片失败: %w", err)
@@ -262,26 +289,7 @@ func TransformImage(srcPath string, opts ImageOptions) (string, error) {
 	img = applyCrop(img, &opts)
 
 	// Save with specific encoder
-	switch opts.Encoder {
-	case "jpg", "jpeg":
-		err = imaging.Encode(of, img, imaging.JPEG, imaging.JPEGQuality(opts.JpgQuality))
-	case "png":
-		err = imaging.Encode(of, img, imaging.PNG, imaging.PNGCompressionLevel(png.CompressionLevel(opts.PngCompression)))
-	case "gif":
-		err = imaging.Encode(of, img, imaging.GIF, imaging.GIFNumColors(opts.GifNumColors))
-	case "webp":
-		err = webp.Encode(of, img, &webp.Options{Lossless: opts.WebpLossless, Quality: opts.WebpQuality})
-	case "avif":
-		err = encodeAVIF(of, img, &opts)
-	case "bmp":
-		err = imaging.Encode(of, img, imaging.BMP)
-	case "tiff", "tif":
-		err = imaging.Encode(of, img, imaging.TIFF)
-	default:
-		err = imaging.Encode(of, img, imaging.PNG)
-	}
-
-	if err != nil {
+	if err := encodeImage(of, img, &opts); err != nil {
 		_ = os.Remove(outputName)
 		return "", fmt.Errorf("编码文件失败: %w", err)
 	}
@@ -345,6 +353,11 @@ var supportedImageExtensions = map[string]bool{
 	".tiff": true,
 	".tif":  true,
 	".avif": true,
+	".heic": true,
+	".heif": true,
+	".jxl":  true,
+	".ico":  true,
+	".icns": true,
 }
 
 func IsSupportedImageExt(ext string) bool {
@@ -415,7 +428,7 @@ func ConvertImageTo(srcPath, destPath string, opts ImageOptions) error {
 	defer of.Close()
 
 	// Special handling for animated GIF when target is GIF
-	if mTyp.String() == "image/gif" && opts.Encoder == "gif" {
+	if mTyp.String() == "image/gif" && strings.ToLower(opts.Encoder) == "gif" {
 		gifImg, err := gif.DecodeAll(f)
 		if err == nil && len(gifImg.Image) > 1 {
 			gifImg = cropGif(gifImg, &opts)
@@ -434,15 +447,7 @@ func ConvertImageTo(srcPath, destPath string, opts ImageOptions) error {
 	}
 
 	var img image.Image
-	if mTyp.String() == "image/avif" {
-		img, err = gav1davif.Decode(f)
-		if err != nil {
-			_, _ = f.Seek(0, io.SeekStart)
-			img, err = imaging.Decode(f, imaging.AutoOrientation(true))
-		}
-	} else {
-		img, err = imaging.Decode(f, imaging.AutoOrientation(true))
-	}
+	img, err = decodeStaticImage(f, mTyp.String())
 	if err != nil {
 		_ = of.Close()
 		_ = os.Remove(actualDest)
@@ -454,26 +459,7 @@ func ConvertImageTo(srcPath, destPath string, opts ImageOptions) error {
 	img = applyCrop(img, &opts)
 
 	// Save with specific encoder
-	switch opts.Encoder {
-	case "jpg", "jpeg":
-		err = imaging.Encode(of, img, imaging.JPEG, imaging.JPEGQuality(opts.JpgQuality))
-	case "png":
-		err = imaging.Encode(of, img, imaging.PNG, imaging.PNGCompressionLevel(png.CompressionLevel(opts.PngCompression)))
-	case "gif":
-		err = imaging.Encode(of, img, imaging.GIF, imaging.GIFNumColors(opts.GifNumColors))
-	case "webp":
-		err = webp.Encode(of, img, &webp.Options{Lossless: opts.WebpLossless, Quality: opts.WebpQuality})
-	case "avif":
-		err = encodeAVIF(of, img, &opts)
-	case "bmp":
-		err = imaging.Encode(of, img, imaging.BMP)
-	case "tiff", "tif":
-		err = imaging.Encode(of, img, imaging.TIFF)
-	default:
-		err = imaging.Encode(of, img, imaging.PNG)
-	}
-
-	if err != nil {
+	if err := encodeImage(of, img, &opts); err != nil {
 		_ = of.Close()
 		_ = os.Remove(actualDest)
 		return fmt.Errorf("编码文件失败: %w", err)
@@ -820,6 +806,53 @@ func cropGif(g *gif.GIF, opts *ImageOptions) *gif.GIF {
 	return c
 }
 
+// encodeImage writes img to w with the encoder selected by opts.Encoder.
+func encodeImage(w io.Writer, img image.Image, opts *ImageOptions) error {
+	switch strings.ToLower(opts.Encoder) {
+	case "jpg", "jpeg":
+		return imaging.Encode(w, img, imaging.JPEG, imaging.JPEGQuality(opts.JpgQuality))
+	case "png":
+		return imaging.Encode(w, img, imaging.PNG, imaging.PNGCompressionLevel(png.CompressionLevel(opts.PngCompression)))
+	case "gif":
+		return imaging.Encode(w, img, imaging.GIF, imaging.GIFNumColors(opts.GifNumColors))
+	case "webp":
+		return webp.Encode(w, img, &webp.Options{Lossless: opts.WebpLossless, Quality: opts.WebpQuality})
+	case "avif":
+		return encodeAVIF(w, img, opts)
+	case "bmp":
+		return imaging.Encode(w, img, imaging.BMP)
+	case "tiff", "tif":
+		return imaging.Encode(w, img, imaging.TIFF)
+	case "heic":
+		return heic.Encode(w, img, heic.EncodeOptions{Quality: opts.HeicQuality, Lossless: opts.HeicLossless})
+	case "jxl":
+		return jxl.Encode(w, img, jxl.EncodeOptions{Quality: opts.JxlQuality, Lossless: opts.JxlLossless})
+	case "ico":
+		return icov4.NewEncoder(w).WithAlgorithm(icov4.Lanczos3).Encode(squareForIcon(img, 256))
+	case "icns":
+		return icnsv4.NewEncoder(w).WithAlgorithm(icnsv4.Lanczos3).Encode(squareForIcon(img, 1024))
+	default:
+		return imaging.Encode(w, img, imaging.PNG)
+	}
+}
+
+// squareForIcon center-crops a non-square image to a square of its larger
+// side, capped at iconSide, the largest entry the target format writes.
+// ICO and ICNS store square icons; cropping keeps the aspect instead of
+// letting the icon encoder distort the image. The cap bounds the intermediate
+// image: a 4032px photo would otherwise square to a ~65MB NRGBA that the
+// encoder only shrinks again, and 4-way batch conversion would hold several
+// of those at once. Square sources are passed through untouched.
+func squareForIcon(img image.Image, iconSide int) image.Image {
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	if w == h {
+		return img
+	}
+	side := min(max(w, h), iconSide)
+	return imaging.Fill(img, side, side, imaging.Center, imaging.Lanczos)
+}
+
 func gav1dSafeSize(w, h int) bool {
 	return w > 0 && h > 0 && w <= 4096 && h <= 4096 && w*h <= 9_000_000
 }
@@ -889,4 +922,3 @@ func extractPalette(img image.Image) color.Palette {
 	}
 	return palette
 }
-
