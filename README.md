@@ -56,7 +56,9 @@
 
 ### 5. 图像处理与文件夹批量转换 (Image)
 - **单图精细处理与可视化裁剪**：
-  - 格式互转（JPG / PNG / WebP / AVIF / GIF / BMP / TIFF）；
+  - 格式互转（JPG / PNG / WebP / AVIF / GIF / BMP / TIFF / HEIC·HEIF / JPEG XL / ICO / ICNS），源格式与目标格式不必对称；
+  - **HEIC/HEIF（iPhone 默认拍照格式）与 JPEG XL 双向转换**：纯 Go 编解码器（`gen2brain/h265`、`gen2brain/jxl`，无 cgo），支持质量调节与无损模式，保留透明通道，HEIC 解码自动应用 irot/imir 旋转；
+  - **ICO（Windows 图标 / favicon）与 ICNS（macOS 应用图标）输出**：自动写入 16–256 / 16–1024 全部标准尺寸（不超过原图边长），非正方形原图居中裁剪为正方形（`jackmordaunt/icns`，纯 Go）；
   - 多种缩放模式（原尺寸、固定宽/高/宽高、最大限制、百分比）；
   - **可视化裁剪弹窗**：支持 1:1、4:3、16:9 比例预设、居中 80%、九宫格参考线与像素级微调。
 - **文件夹全量批量递归转换**：

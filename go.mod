@@ -10,6 +10,9 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.16
 	github.com/gen2brain/avif v0.6.0
 	github.com/gen2brain/gav1d v0.2.6
+	github.com/gen2brain/h265 v0.2.7
+	github.com/gen2brain/jxl v0.2.2
+	github.com/jackmordaunt/icns/v4 v4.2.0
 	github.com/makiuchi-d/gozxing v0.1.1
 	github.com/welllog/golib v0.1.1
 	github.com/yeqown/go-qrcode/v2 v2.3.0

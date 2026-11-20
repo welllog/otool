@@ -28,7 +28,7 @@ var resizeModes = []struct {
 	{Name: "自定义裁剪", Value: services.OpCustomCrop},
 }
 
-var imageEncoders = []string{"png", "jpg", "webp", "gif", "avif", "bmp", "tiff"}
+var imageEncoders = []string{"png", "jpg", "webp", "gif", "avif", "bmp", "tiff", "heic", "jxl", "ico", "icns"}
 
 var pngCompressOptions = []struct {
 	Name  string
@@ -116,7 +116,7 @@ func (a *App) viewImageFine(c *ui.Context) {
 			dropZone.Children(func() {
 				ui.Column(c).Gap(4).Children(func() {
 					ui.Text(c, "支持拖拽单张或多张图片至此处添加").FontSize(12).Bold().TextColor(t.Text)
-					ui.Text(c, "格式支持 JPG, PNG, GIF, BMP, TIFF, WEBP, AVIF").FontSize(11).TextColor(t.TextMuted)
+					ui.Text(c, "格式支持 JPG, PNG, GIF, BMP, TIFF, WEBP, AVIF, HEIC/HEIF, JXL, ICO, ICNS").FontSize(11).TextColor(t.TextMuted)
 				})
 
 				if ui.Button(c, "添加图片文件").Disabled(a.imgIsProcessing).Clicked() {
@@ -125,7 +125,7 @@ func (a *App) viewImageFine(c *ui.Context) {
 							Title:    "选择图片文件",
 							Multiple: true,
 							Filters: []mygo.FileFilter{
-								{Name: "图片文件", Extensions: []string{"jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "avif"}},
+								{Name: "图片文件", Extensions: []string{"jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "avif", "heic", "heif", "jxl", "ico", "icns"}},
 							},
 						})
 						if err == nil && len(paths) > 0 {
@@ -674,6 +674,44 @@ func (a *App) renderEncoderSettingsCard(c *ui.Context) {
 							})
 						}
 					})
+				})
+
+			case "heic":
+				ui.Column(c).Gap(10).Children(func() {
+					SectionHeader(c, fmt.Sprintf("HEIC 图像质量: %d", a.imgOpts.HeicQuality), ui.Hex("#2563eb"))
+					hqVal := float64(a.imgOpts.HeicQuality)
+					if ui.Slider(c, &hqVal, 1, 100).Changed() {
+						a.imgOpts.HeicQuality = int(hqVal)
+					}
+					ui.Checkbox(c, &a.imgOpts.HeicLossless, "无损压缩 (Lossless)")
+					ui.Text(c, "iPhone 默认拍照格式，压缩率约为 JPEG 的一半").FontSize(11).TextColor(t.TextMuted)
+				})
+
+			case "jxl":
+				ui.Column(c).Gap(10).Children(func() {
+					SectionHeader(c, fmt.Sprintf("JPEG XL 图像质量: %d", a.imgOpts.JxlQuality), ui.Hex("#2563eb"))
+					jqVal := float64(a.imgOpts.JxlQuality)
+					if ui.Slider(c, &jqVal, 1, 100).Changed() {
+						a.imgOpts.JxlQuality = int(jqVal)
+					}
+					ui.Checkbox(c, &a.imgOpts.JxlLossless, "无损压缩 (Lossless)")
+					ui.Text(c, "新一代格式，支持有损与无损，透明通道会被保留").FontSize(11).TextColor(t.TextMuted)
+				})
+
+			case "ico":
+				ui.Column(c).Gap(8).Children(func() {
+					ui.Text(c, "Windows 图标格式：自动写入 16/24/32/48/64/128/256 多尺寸条目（不超过原图边长）。").
+						FontSize(11).TextColor(t.TextMuted)
+					ui.Text(c, "非正方形原图将居中裁剪为正方形，适合生成 favicon。").
+						FontSize(11).TextColor(t.TextMuted)
+				})
+
+			case "icns":
+				ui.Column(c).Gap(8).Children(func() {
+					ui.Text(c, "macOS 应用图标格式：自动写入 16–1024 全尺寸槽位（不超过原图边长）。").
+						FontSize(11).TextColor(t.TextMuted)
+					ui.Text(c, "非正方形原图将居中裁剪为正方形，建议使用 1024x1024 原图。").
+						FontSize(11).TextColor(t.TextMuted)
 				})
 
 			default:

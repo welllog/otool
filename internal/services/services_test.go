@@ -361,7 +361,7 @@ func TestImageOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	formats := []string{"jpg", "png", "webp", "avif"}
+	formats := []string{"jpg", "png", "webp", "avif", "heic", "jxl", "ico", "icns"}
 	for _, fmtName := range formats {
 		opts := services.DefaultImageOptions()
 		opts.OutPath = outDir
@@ -405,6 +405,137 @@ func TestImageOperations(t *testing.T) {
 	}
 	if progressReports == 0 {
 		t.Fatal("Expected progress reports during BatchTransform")
+	}
+}
+
+func TestNewImageFormats(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Source PNG 100x80 with a fully transparent stripe to exercise alpha.
+	srcImg := image.NewNRGBA(image.Rect(0, 0, 100, 80))
+	for y := 0; y < 80; y++ {
+		for x := 0; x < 100; x++ {
+			if x < 20 {
+				srcImg.SetNRGBA(x, y, color.NRGBA{R: 255, A: 0})
+			} else {
+				srcImg.SetNRGBA(x, y, color.NRGBA{R: uint8(x * 2), G: uint8(y * 3), B: 128, A: 255})
+			}
+		}
+	}
+	srcPath := filepath.Join(tmpDir, "src.png")
+	f, err := os.Create(srcPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := png.Encode(f, srcImg); err != nil {
+		f.Close()
+		t.Fatal(err)
+	}
+	f.Close()
+
+	outDir := filepath.Join(tmpDir, "out")
+	if err := os.MkdirAll(outDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. HEIC and JXL keep the original dimensions and the alpha channel.
+	for _, tc := range []struct{ encoder string }{
+		{"heic"},
+		{"jxl"},
+	} {
+		opts := services.DefaultImageOptions()
+		opts.OutPath = outDir
+		opts.Encoder = tc.encoder
+
+		outPath, err := services.TransformImage(srcPath, opts)
+		if err != nil {
+			t.Fatalf("TransformImage to %s failed: %v", tc.encoder, err)
+		}
+
+		df, err := os.Open(outPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded, _, err := image.Decode(df)
+		df.Close()
+		if err != nil {
+			t.Fatalf("image.Decode of %s output failed: %v", tc.encoder, err)
+		}
+		if w, h := decoded.Bounds().Dx(), decoded.Bounds().Dy(); w != 100 || h != 80 {
+			t.Fatalf("%s output dimension mismatch: got %dx%d, want 100x80", tc.encoder, w, h)
+		}
+		if _, _, _, a := decoded.At(0, 0).RGBA(); a > 0x0fff {
+			t.Fatalf("%s output lost the transparent region: alpha=%d", tc.encoder, a)
+		}
+
+		// 2. The new formats also work as a source for another conversion.
+		pngOpts := services.DefaultImageOptions()
+		pngOpts.OutPath = outDir
+		pngOpts.Encoder = "png"
+		pngOut, err := services.TransformImage(outPath, pngOpts)
+		if err != nil {
+			t.Fatalf("TransformImage from %s source failed: %v", tc.encoder, err)
+		}
+		info, err := services.DecodeImageInfo(pngOut)
+		if err != nil || info.Width != 100 || info.Height != 80 {
+			t.Fatalf("%s -> png dimension mismatch: got %dx%d, err %v", tc.encoder, info.Width, info.Height, err)
+		}
+		if info.Format != "PNG" {
+			t.Fatalf("%s -> png produced format %q", tc.encoder, info.Format)
+		}
+	}
+
+	// 3. ICO and ICNS center-crop to a square and keep the largest fitting size.
+	// A 100x80 source squares to 100x100, whose largest icon entry is 64x64.
+	for _, tc := range []struct{ encoder, ext, wantFormat string }{
+		{"ico", ".ico", "ICO"},
+		{"icns", ".icns", "ICNS"},
+	} {
+		opts := services.DefaultImageOptions()
+		opts.OutPath = outDir
+		opts.Encoder = tc.encoder
+
+		outPath, err := services.TransformImage(srcPath, opts)
+		if err != nil {
+			t.Fatalf("TransformImage to %s failed: %v", tc.encoder, err)
+		}
+
+		info, err := services.DecodeImageInfo(outPath)
+		if err != nil {
+			t.Fatalf("DecodeImageInfo of %s failed: %v", tc.encoder, err)
+		}
+		if info.Format != tc.wantFormat {
+			t.Fatalf("%s output detected as %q, want %q", tc.encoder, info.Format, tc.wantFormat)
+		}
+		if info.Width != 64 || info.Height != 64 {
+			t.Fatalf("%s largest entry is %dx%d, want 64x64", tc.encoder, info.Width, info.Height)
+		}
+
+		// 4. Icons also serve as a source for another format.
+		pngOpts := services.DefaultImageOptions()
+		pngOpts.OutPath = outDir
+		pngOpts.Encoder = "png"
+		if _, err := services.TransformImage(outPath, pngOpts); err != nil {
+			t.Fatalf("TransformImage from %s source failed: %v", tc.encoder, err)
+		}
+	}
+
+	// 5. The folder scan picks up the new extensions.
+	icnsPath := filepath.Join(tmpDir, "plain.icns")
+	if err := os.WriteFile(icnsPath, []byte("icns placeholder"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	scanned, err := services.ScanImageFiles(tmpDir, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scanned) != 2 {
+		t.Fatalf("ScanImageFiles found %d files, want 2 (src.png and plain.icns at top level)", len(scanned))
+	}
+	for _, ext := range []string{".heic", ".jxl", ".ico", ".icns"} {
+		if !services.IsSupportedImageExt(ext) {
+			t.Fatalf("IsSupportedImageExt(%q) should be true", ext)
+		}
 	}
 }
 
@@ -593,6 +724,3 @@ func TestBatchConvertFolder(t *testing.T) {
 		t.Fatalf("Expected preserved original dimensions 48x32, but got %dx%d", infoWebp.Width, infoWebp.Height)
 	}
 }
-
-
-
